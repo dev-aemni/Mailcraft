@@ -1,0 +1,6 @@
+{
+  "name": "MailCraft",
+  "description": "Visual email composer and Gmail SMTP sending studio with customized buttons, embedded media, and GIF integration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

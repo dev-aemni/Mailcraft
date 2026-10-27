@@ -1,0 +1,6 @@
+{
+  "summary":  "Implementation plan for MailCraft introducing:\n1. Real file attachments (PDFs, images, docs) with Android Document Picker, MIME multipart/mixed packaging, Base64 chunked encoding, and attachment management UI in Compose & Deploy screens.\n2. Dark mode email client rendering simulator for both visual template composer and live HTML workstation with client simulation presets and real-time CSS media query emulation.",
+  "updatedAt":  "2026-10-25T16:47:27.962535281Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

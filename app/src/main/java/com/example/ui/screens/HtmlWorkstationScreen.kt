@@ -1,0 +1,2043 @@
+package com.example.ui.screens
+
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Code
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.FormatAlignLeft
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.KeyboardTab
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.RocketLaunch
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.VerticalSplit
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.AttachFile
+import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.material.icons.filled.InsertDriveFile
+import androidx.compose.material.icons.filled.EmojiEmotions
+import android.util.Base64
+import android.provider.OpenableColumns
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.result.PickVisualMediaRequest
+import com.example.model.ClientDarkMode
+import com.example.model.EmailAttachment
+import com.example.model.EmailBlock
+import com.example.model.EmailMessage
+import com.example.model.TemplatePresets
+import com.example.ui.AppTab
+import com.example.ui.MailCraftViewModel
+import com.example.ui.components.HtmlSyntaxVisualTransformation
+import com.example.util.HtmlEmailGenerator
+
+// Spck IDE color theme - Clean & Crisp Light Material 3 Styling
+val SpckDarkBg = Color(0xFFF8FAFC)
+val SpckTopBarBg = Color(0xFFF1F5F9)
+val SpckGutterBg = Color(0xFFF1F5F9)
+val SpckTabBg = Color(0xFFFFFFFF)
+val SpckBorder = Color(0xFFE2E8F0)
+val SpckTextGutter = Color(0xFF64748B)
+val SpckGreenRun = Color(0xFF10B981) // Modern emerald green run button
+val SpckHtml5Red = Color(0xFFE44D26) // Official HTML5 badge red
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
+  val context = LocalContext.current
+  val customHtml by viewModel.customHtmlContent.collectAsState()
+  val recipient by viewModel.recipientEmail.collectAsState()
+  val subject by viewModel.subject.collectAsState()
+  val sender by viewModel.senderAccount.collectAsState()
+  val clientDarkMode by viewModel.clientDarkMode.collectAsState()
+  val attachments by viewModel.attachments.collectAsState()
+
+  // Make sure custom HTML is populated on first entrance
+
+  LaunchedEffect(Unit) {
+    if (customHtml.isBlank()) {
+      viewModel.enableCustomHtmlMode()
+    }
+  }
+
+  var textFieldValue by remember {
+    mutableStateOf(TextFieldValue(customHtml, TextRange(customHtml.length)))
+  }
+
+  // Synchronize when customHtml changes externally (e.g. templates or format)
+  LaunchedEffect(customHtml) {
+    if (textFieldValue.text != customHtml) {
+      textFieldValue = textFieldValue.copy(text = customHtml)
+    }
+  }
+
+  val customTemplates by viewModel.customTemplates.collectAsState()
+  var showPreviewModal by remember { mutableStateOf(false) }
+  var showClearConfirmDialog by remember { mutableStateOf(false) }
+  var showTemplatesModal by remember { mutableStateOf(false) }
+  var showVariablesModal by remember { mutableStateOf(false) }
+  var showSaveTemplateDialog by remember { mutableStateOf(false) }
+  var newTemplateName by remember { mutableStateOf("") }
+  var newTemplateEmoji by remember { mutableStateOf("📄") }
+  var templatesTab by remember { mutableStateOf(0) }
+  var showMenuDropdown by remember { mutableStateOf(false) }
+  var showSearchOverlay by remember { mutableStateOf(false) }
+  var searchQuery by remember { mutableStateOf("") }
+  var isPreviewMobileViewport by remember { mutableStateOf(false) }
+  var showAssetsModal by remember { mutableStateOf(false) }
+  var assetModalTab by remember { mutableStateOf(0) }
+
+  val insertTextAtCursor: (String) -> Unit = { textToInsert ->
+    insertChar(textFieldValue, textToInsert) {
+      textFieldValue = it
+      viewModel.setCustomHtml(it.text)
+    }
+  }
+
+  // File pickers for Images, PDFs, and HTML
+  val imagePickerLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.PickVisualMedia()
+  ) { uri ->
+    if (uri != null) {
+      try {
+        val resolver = context.contentResolver
+        var fileName = "image.png"
+        var fileSize = 0L
+        resolver.query(uri, null, null, null, null)?.use { cursor ->
+          if (cursor.moveToFirst()) {
+            val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            val sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (nameIdx >= 0) fileName = cursor.getString(nameIdx) ?: "image.png"
+            if (sizeIdx >= 0) fileSize = cursor.getLong(sizeIdx)
+          }
+        }
+        val bytes = resolver.openInputStream(uri)?.use { it.readBytes() } ?: ByteArray(0)
+        val mimeType = resolver.getType(uri) ?: "image/png"
+        val base64Data = Base64.encodeToString(bytes, Base64.NO_WRAP)
+        val dataUri = "data:$mimeType;base64,$base64Data"
+
+        viewModel.addAttachmentDirect(
+          EmailAttachment(
+            fileName = fileName,
+            uriString = uri.toString(),
+            mimeType = mimeType,
+            sizeBytes = fileSize
+          )
+        )
+
+        val imgSnippet = """<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 16px 0;"><tr><td align="center"><img src="$dataUri" alt="${fileName.replace("\"", "")}" style="max-width: 100%; height: auto; border-radius: 8px; display: block; border: 0;" /></td></tr></table>"""
+        insertTextAtCursor("\n$imgSnippet\n")
+        Toast.makeText(context, "Imported \"$fileName\" & inserted into HTML!", Toast.LENGTH_SHORT).show()
+        showAssetsModal = false
+      } catch (e: Exception) {
+        Toast.makeText(context, "Failed to import image: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+      }
+    }
+  }
+
+  val pdfPickerLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.GetContent()
+  ) { uri ->
+    if (uri != null) {
+      try {
+        val resolver = context.contentResolver
+        var fileName = "document.pdf"
+        var fileSize = 0L
+        resolver.query(uri, null, null, null, null)?.use { cursor ->
+          if (cursor.moveToFirst()) {
+            val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+            val sizeIdx = cursor.getColumnIndex(OpenableColumns.SIZE)
+            if (nameIdx >= 0) fileName = cursor.getString(nameIdx) ?: "document.pdf"
+            if (sizeIdx >= 0) fileSize = cursor.getLong(sizeIdx)
+          }
+        }
+        val formattedSize = if (fileSize < 1024) "${fileSize} B" else if (fileSize < 1024 * 1024) "${fileSize / 1024} KB" else "${fileSize / (1024 * 1024)} MB"
+        viewModel.addAttachmentDirect(
+          EmailAttachment(
+            fileName = fileName,
+            uriString = uri.toString(),
+            mimeType = "application/pdf",
+            sizeBytes = fileSize
+          )
+        )
+
+        val pdfSnippet = """<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 16px 0; background-color: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 10px;"><tr><td style="padding: 16px;"><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td width="36" valign="middle"><span style="font-size: 26px;">📄</span></td><td style="padding-left: 12px;" valign="middle"><div style="font-family: sans-serif; font-size: 14px; font-weight: 700; color: #1E293B;">${fileName.replace("\"", "")}</div><div style="font-family: sans-serif; font-size: 12px; color: #64748B;">PDF Attachment included • $formattedSize</div></td></tr></table></td></tr></table>"""
+        insertTextAtCursor("\n$pdfSnippet\n")
+        Toast.makeText(context, "Imported PDF \"$fileName\" & attached to email!", Toast.LENGTH_SHORT).show()
+        showAssetsModal = false
+      } catch (e: Exception) {
+        Toast.makeText(context, "Failed to import PDF: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+      }
+    }
+  }
+
+  val htmlFilePickerLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.GetContent()
+  ) { uri ->
+    if (uri != null) {
+      try {
+        val resolver = context.contentResolver
+        val content = resolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
+        if (content.isNotBlank()) {
+          val formatted = HtmlEmailGenerator.formatHtml(content)
+          viewModel.setCustomHtml(formatted)
+          textFieldValue = TextFieldValue(formatted, TextRange(formatted.length))
+          Toast.makeText(context, "HTML file imported into editor!", Toast.LENGTH_SHORT).show()
+          showAssetsModal = false
+        }
+      } catch (e: Exception) {
+        Toast.makeText(context, "Failed to read HTML: ${e.localizedMessage}", Toast.LENGTH_LONG).show()
+      }
+    }
+  }
+
+  fun insertTextAtCursor(textToInsert: String) {
+    val sel = textFieldValue.selection.start.coerceIn(0, textFieldValue.text.length)
+    val prefix = textFieldValue.text.substring(0, sel)
+    val suffix = textFieldValue.text.substring(sel)
+    val newText = prefix + textToInsert + suffix
+    val newCursor = sel + textToInsert.length
+    textFieldValue = TextFieldValue(newText, TextRange(newCursor))
+    viewModel.setCustomHtml(newText)
+  }
+
+  val lines = textFieldValue.text.lines()
+  val lineCount = lines.size.coerceAtLeast(1)
+  val cursorOffset = textFieldValue.selection.start.coerceIn(0, textFieldValue.text.length)
+  val textBeforeCursor = textFieldValue.text.take(cursorOffset)
+  val currentLine = textBeforeCursor.count { it == '\n' } + 1
+  val lastNewline = textBeforeCursor.lastIndexOf('\n')
+  val currentCol = if (lastNewline >= 0) cursorOffset - lastNewline else cursorOffset + 1
+
+  // 1. Clear Page Confirmation Dialog (CANCEL / OK)
+  if (showClearConfirmDialog) {
+    AlertDialog(
+      onDismissRequest = { showClearConfirmDialog = false },
+      title = {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFEF4444), modifier = Modifier.size(24.dp))
+          Spacer(modifier = Modifier.width(8.dp))
+          Text("Clear Page?", fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+        }
+      },
+      text = {
+        Text(
+          "Are you sure you want to clear all code on this page? This action cannot be undone.",
+          color = Color(0xFF475569),
+          lineHeight = 20.sp
+        )
+      },
+      containerColor = Color.White,
+      confirmButton = {
+        Button(
+          onClick = {
+            val emptySkeleton = """
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>New Email</title>
+</head>
+<body style="font-family: sans-serif; padding: 20px;">
+  <h2>Hello!</h2>
+  <p>Start writing your custom HTML here...</p>
+</body>
+</html>
+            """.trimIndent()
+            viewModel.setCustomHtml(emptySkeleton)
+            textFieldValue = TextFieldValue(emptySkeleton, TextRange(emptySkeleton.length))
+            showClearConfirmDialog = false
+            Toast.makeText(context, "Page cleared!", Toast.LENGTH_SHORT).show()
+          },
+          colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+          modifier = Modifier.testTag("confirm_clear_ok_button")
+        ) {
+          Text("OK", fontWeight = FontWeight.Bold)
+        }
+      },
+      dismissButton = {
+        OutlinedButton(
+          onClick = { showClearConfirmDialog = false },
+          colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF64748B)),
+          modifier = Modifier.testTag("confirm_clear_cancel_button")
+        ) {
+          Text("CANCEL")
+        }
+      }
+    )
+  }
+
+  // Variables Info Modal (i)
+  if (showVariablesModal) {
+    AlertDialog(
+      onDismissRequest = { showVariablesModal = false },
+      containerColor = Color.White,
+      title = {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(24.dp))
+          Spacer(modifier = Modifier.width(8.dp))
+          Text("Template Variables (i)", fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B))
+        }
+      },
+      text = {
+        Column(
+          modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+          verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+          Text(
+            "Insert these dynamic placeholders into your HTML or JavaScript code. MailCraft auto-replaces them when previewing or sending!",
+            fontSize = 12.sp,
+            color = Color(0xFF475569),
+            lineHeight = 18.sp
+          )
+
+          val varList = listOf(
+            Triple("{{MyEmail}}", sender.email.ifBlank { "xxx@xxx.xxx" }, "Your sender Gmail address"),
+            Triple("{{RecipientEmail}}", recipient.ifBlank { "xxx@xxx.xxx" }, "Target recipient email"),
+            Triple("{{MyPassword}}", if (sender.appPassword.isNotBlank()) "•••• •••• •••• ••••" else "xxxxx xxxxx xxxxx", "16-char Google App Password"),
+            Triple("{{SenderName}}", sender.displayName.ifBlank { "My Name" }, "Your display name"),
+            Triple("{{Subject}}", subject.ifBlank { "Subject" }, "Email subject line"),
+            Triple("{{CurrentDate}}", java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US).format(java.util.Date()), "Current date (YYYY-MM-DD)")
+          )
+
+          varList.forEach { (tag, value, desc) ->
+            Card(
+              shape = RoundedCornerShape(10.dp),
+              colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+              modifier = Modifier.fillMaxWidth()
+            ) {
+              Column(modifier = Modifier.padding(10.dp)) {
+                Row(
+                  modifier = Modifier.fillMaxWidth(),
+                  horizontalArrangement = Arrangement.SpaceBetween,
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  Text(tag, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Color(0xFF6D28D9), fontSize = 13.sp)
+                  Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    TextButton(
+                      onClick = {
+                        insertTextAtCursor(tag)
+                        showVariablesModal = false
+                        Toast.makeText(context, "Inserted $tag into code!", Toast.LENGTH_SHORT).show()
+                      },
+                      contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                      Text("+ Insert", fontSize = 11.sp, color = Color(0xFF059669))
+                    }
+                    TextButton(
+                      onClick = {
+                        val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText("Var", tag))
+                        Toast.makeText(context, "Copied $tag", Toast.LENGTH_SHORT).show()
+                      },
+                      contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                    ) {
+                      Text("Copy", fontSize = 11.sp, color = Color(0xFF2563EB))
+                    }
+                  }
+                }
+                Spacer(modifier = Modifier.height(2.dp))
+                Text("Value: $value", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color(0xFF334155))
+                Text(desc, fontSize = 10.sp, color = Color(0xFF64748B))
+              }
+            }
+          }
+        }
+      },
+      confirmButton = {
+        Button(
+          onClick = { showVariablesModal = false },
+          colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED))
+        ) {
+          Text("Done")
+        }
+      }
+    )
+  }
+
+  // Save as Internal Template Dialog
+  if (showSaveTemplateDialog) {
+    AlertDialog(
+      onDismissRequest = { showSaveTemplateDialog = false },
+      containerColor = Color.White,
+      title = {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Text("Save Internal Template 💾", fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B))
+        }
+      },
+      text = {
+        Column {
+          Text(
+            "Save your current HTML code into the internal template library.",
+            color = Color(0xFF475569),
+            fontSize = 12.sp
+          )
+          Spacer(modifier = Modifier.height(12.dp))
+          OutlinedTextField(
+            value = newTemplateName,
+            onValueChange = { newTemplateName = it },
+            label = { Text("Template Name", color = Color(0xFF64748B)) },
+            placeholder = { Text("e.g. Purple Promo Newsletter", color = Color(0xFF94A3B8)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+            textStyle = TextStyle(color = Color(0xFF1E1B4B))
+          )
+          Spacer(modifier = Modifier.height(12.dp))
+          Text("Select Icon / Emoji:", color = Color(0xFF64748B), fontSize = 11.sp)
+          Spacer(modifier = Modifier.height(6.dp))
+          Row(
+            modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            val emojis = listOf("📄", "🚀", "💜", "🎁", "✨", "📢", "✉️", "🌸", "🔥")
+            emojis.forEach { emoji ->
+              Box(
+                modifier = Modifier
+                  .size(38.dp)
+                  .clip(CircleShape)
+                  .background(if (newTemplateEmoji == emoji) Color(0xFF7C3AED) else Color(0xFFF1F5F9))
+                  .border(
+                    width = if (newTemplateEmoji == emoji) 2.dp else 1.dp,
+                    color = if (newTemplateEmoji == emoji) Color(0xFF7C3AED) else Color(0xFFE2E8F0),
+                    shape = CircleShape
+                  )
+                  .clickable { newTemplateEmoji = emoji },
+                contentAlignment = Alignment.Center
+              ) {
+                Text(emoji, fontSize = 18.sp)
+              }
+            }
+          }
+        }
+      },
+      confirmButton = {
+        Button(
+          onClick = {
+            if (newTemplateName.isBlank()) {
+              Toast.makeText(context, "Please enter a template name", Toast.LENGTH_SHORT).show()
+              return@Button
+            }
+            viewModel.saveCustomTemplate(
+              title = newTemplateName.trim(),
+              iconEmoji = newTemplateEmoji,
+              explicitHtml = textFieldValue.text
+            )
+            Toast.makeText(context, "Template \"$newTemplateName\" saved internally!", Toast.LENGTH_SHORT).show()
+            newTemplateName = ""
+            showSaveTemplateDialog = false
+          },
+          colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED))
+        ) {
+          Text("Save Template")
+        }
+      },
+      dismissButton = {
+        OutlinedButton(
+          onClick = { showSaveTemplateDialog = false },
+          colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF64748B))
+        ) {
+          Text("Cancel")
+        }
+      }
+    )
+  }
+
+  // Local Assets & Files Modal (PDF, Images, HTML, Icons)
+  if (showAssetsModal) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+      onDismissRequest = { showAssetsModal = false },
+      sheetState = sheetState,
+      containerColor = Color.White
+    ) {
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 20.dp)
+          .padding(bottom = 32.dp)
+      ) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.FolderOpen, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(22.dp))
+              Spacer(modifier = Modifier.width(8.dp))
+              Text("Local Assets & File Importer", color = Color(0xFF1E1B4B), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            }
+            Text("Import device images, PDFs, HTML files & insert email-ready HTML", color = Color(0xFF64748B), fontSize = 12.sp)
+          }
+          IconButton(onClick = { showAssetsModal = false }) {
+            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF64748B))
+          }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Tabs: 0: Device Imports, 1: Attachments, 2: Icons & Badges
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          FilterChip(
+            selected = assetModalTab == 0,
+            onClick = { assetModalTab = 0 },
+            label = { Text("📁 File Import") },
+            modifier = Modifier.weight(1f)
+          )
+          FilterChip(
+            selected = assetModalTab == 1,
+            onClick = { assetModalTab = 1 },
+            label = { Text("📎 Attached (${attachments.size})") },
+            modifier = Modifier.weight(1f)
+          )
+          FilterChip(
+            selected = assetModalTab == 2,
+            onClick = { assetModalTab = 2 },
+            label = { Text("⭐ Icons & Badges") },
+            modifier = Modifier.weight(1f)
+          )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        when (assetModalTab) {
+          0 -> {
+            Column(
+              modifier = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState()),
+              verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+              // 1. Image Import Card
+              Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Row(
+                  modifier = Modifier.padding(14.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                  Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(
+                      modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFFEDE9FE)),
+                      contentAlignment = Alignment.Center
+                    ) {
+                      Icon(Icons.Default.Image, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(22.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                      Text("Import Image / Icon", fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B), fontSize = 14.sp)
+                      Text("PNG, JPG, SVG, WebP. Auto-converts to Base64 & inserts <img> tag.", color = Color(0xFF64748B), fontSize = 11.sp)
+                    }
+                  }
+                  Button(
+                    onClick = {
+                      imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                  ) {
+                    Text("Select", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                  }
+                }
+              }
+
+              // 2. PDF Document Import Card
+              Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Row(
+                  modifier = Modifier.padding(14.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                  Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(
+                      modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFFFEE2E2)),
+                      contentAlignment = Alignment.Center
+                    ) {
+                      Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(22.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                      Text("Import PDF File", fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B), fontSize = 14.sp)
+                      Text("Attaches to email & inserts a styled download badge into code.", color = Color(0xFF64748B), fontSize = 11.sp)
+                    }
+                  }
+                  Button(
+                    onClick = {
+                      pdfPickerLauncher.launch("application/pdf")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFDC2626)),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                  ) {
+                    Text("Select", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                  }
+                }
+              }
+
+              // 3. Local HTML File Fetch Card
+              Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Row(
+                  modifier = Modifier.padding(14.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                  Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Box(
+                      modifier = Modifier
+                        .size(40.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFFE0F2FE)),
+                      contentAlignment = Alignment.Center
+                    ) {
+                      Icon(Icons.Default.InsertDriveFile, contentDescription = null, tint = Color(0xFF0284C7), modifier = Modifier.size(22.dp))
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                      Text("Fetch Local HTML File", fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B), fontSize = 14.sp)
+                      Text("Load any .html file from device directly into this workstation.", color = Color(0xFF64748B), fontSize = 11.sp)
+                    }
+                  }
+                  Button(
+                    onClick = {
+                      htmlFilePickerLauncher.launch("*/*")
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp)
+                  ) {
+                    Text("Fetch", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                  }
+                }
+              }
+            }
+          }
+
+          1 -> {
+            // Attached files list
+            if (attachments.isEmpty()) {
+              Box(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .height(180.dp)
+                  .background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
+                  .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+              ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                  Text("📎", fontSize = 32.sp)
+                  Spacer(modifier = Modifier.height(8.dp))
+                  Text("No attachments attached yet", fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B), fontSize = 14.sp)
+                  Text("Select an image or PDF from the File Import tab to attach.", color = Color(0xFF64748B), fontSize = 11.sp)
+                }
+              }
+            } else {
+              LazyColumn(
+                modifier = Modifier.fillMaxWidth().height(260.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                items(attachments, key = { it.id }) { att ->
+                  Card(
+                    shape = RoundedCornerShape(10.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    modifier = Modifier.fillMaxWidth()
+                  ) {
+                    Row(
+                      modifier = Modifier.padding(12.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                      Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                        Text(if (att.mimeType.contains("pdf")) "📄" else "🖼️", fontSize = 20.sp)
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                          Text(att.fileName, fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B), fontSize = 13.sp, maxLines = 1)
+                          Text("${att.mimeType} • ${att.formattedSize}", color = Color(0xFF64748B), fontSize = 11.sp)
+                        }
+                      }
+                      IconButton(onClick = { viewModel.removeAttachment(att.id) }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Remove", tint = Color(0xFFDC2626), modifier = Modifier.size(18.dp))
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          2 -> {
+            // Icons & Quick HTML Badges Library
+            Column(
+              modifier = Modifier
+                .fillMaxWidth()
+                .height(280.dp)
+                .verticalScroll(rememberScrollState()),
+              verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+              Text("Tap any icon or badge to insert responsive HTML snippet into code:", fontSize = 11.sp, color = Color(0xFF64748B))
+
+              // 1. Call to Action Button Snippets
+              Text("Action Buttons:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E1B4B))
+              Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                OutlinedButton(
+                  onClick = {
+                    val snippet = """<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 14px 0;"><tr><td align="center" bgcolor="#7C3AED" style="border-radius: 8px;"><a href="https://example.com" target="_blank" style="display: inline-block; padding: 12px 24px; font-family: sans-serif; font-size: 14px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 8px;">Get Started Now →</a></td></tr></table>"""
+                    insertTextAtCursor("\n$snippet\n")
+                    Toast.makeText(context, "Inserted Primary Purple Button!", Toast.LENGTH_SHORT).show()
+                    showAssetsModal = false
+                  }
+                ) {
+                  Text("Purple CTA Button")
+                }
+
+                OutlinedButton(
+                  onClick = {
+                    val snippet = """<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 14px 0;"><tr><td align="center" bgcolor="#10B981" style="border-radius: 8px;"><a href="https://example.com" target="_blank" style="display: inline-block; padding: 12px 24px; font-family: sans-serif; font-size: 14px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 8px;">✓ Confirm & Verify Email</a></td></tr></table>"""
+                    insertTextAtCursor("\n$snippet\n")
+                    Toast.makeText(context, "Inserted Green Verify Button!", Toast.LENGTH_SHORT).show()
+                    showAssetsModal = false
+                  }
+                ) {
+                  Text("Verify Email Button")
+                }
+              }
+
+              // 2. Feature Callout Cards
+              Text("Feature Callout Boxes:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E1B4B))
+              Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                OutlinedButton(
+                  onClick = {
+                    val snippet = """<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 16px 0; background-color: #F8FAFC; border-left: 4px solid #7C3AED; border-radius: 6px; padding: 16px;"><tr><td><div style="font-family: sans-serif; font-size: 14px; font-weight: 700; color: #1E1B4B; margin-bottom: 4px;">💡 Important Update</div><div style="font-family: sans-serif; font-size: 13px; color: #475569; line-height: 20px;">Here is an important notification for your attention.</div></td></tr></table>"""
+                    insertTextAtCursor("\n$snippet\n")
+                    Toast.makeText(context, "Inserted Callout Box!", Toast.LENGTH_SHORT).show()
+                    showAssetsModal = false
+                  }
+                ) {
+                  Text("💡 Highlight Callout")
+                }
+
+                OutlinedButton(
+                  onClick = {
+                    val snippet = """<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 16px 0; background-color: #FEF3C7; border: 1px solid #FCD34D; border-radius: 8px; padding: 14px;"><tr><td width="30" valign="top"><span style="font-size: 20px;">⚠️</span></td><td style="padding-left: 10px;"><div style="font-family: sans-serif; font-size: 13px; font-weight: 700; color: #92400E;">Security Notice</div><div style="font-family: sans-serif; font-size: 12px; color: #B45309;">Please review your account credentials.</div></td></tr></table>"""
+                    insertTextAtCursor("\n$snippet\n")
+                    Toast.makeText(context, "Inserted Security Notice Box!", Toast.LENGTH_SHORT).show()
+                    showAssetsModal = false
+                  }
+                ) {
+                  Text("⚠️ Alert Box")
+                }
+              }
+
+              // 3. Emojis and Quick Icons
+              Text("Quick Emojis & Icon Badges:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E1B4B))
+              Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                val iconList = listOf("✉️", "🚀", "⭐", "🎁", "🛡️", "📅", "🔥", "✨", "🌸", "💬", "📱", "🔔", "🏆")
+                iconList.forEach { ic ->
+                  Box(
+                    modifier = Modifier
+                      .size(42.dp)
+                      .clip(RoundedCornerShape(8.dp))
+                      .background(Color(0xFFF1F5F9))
+                      .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(8.dp))
+                      .clickable {
+                        insertTextAtCursor(ic)
+                        Toast.makeText(context, "Inserted $ic", Toast.LENGTH_SHORT).show()
+                      },
+                    contentAlignment = Alignment.Center
+                  ) {
+                    Text(ic, fontSize = 20.sp)
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 2. Templates Modal Sheet (Internal & Presets)
+  if (showTemplatesModal) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+      onDismissRequest = { showTemplatesModal = false },
+      sheetState = sheetState,
+      containerColor = Color.White
+    ) {
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 20.dp)
+          .padding(bottom = 32.dp)
+      ) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Column {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(20.dp))
+              Spacer(modifier = Modifier.width(8.dp))
+              Text("Email Templates", color = Color(0xFF1E1B4B), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+            }
+            Text("Load into editor or save your custom design", color = Color(0xFF64748B), fontSize = 12.sp)
+          }
+          IconButton(onClick = { showTemplatesModal = false }) {
+            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF64748B))
+          }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Tabs: My Templates vs Built-in
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          FilterChip(
+            selected = templatesTab == 0,
+            onClick = { templatesTab = 0 },
+            label = { Text("My Internal (${customTemplates.size})") },
+            modifier = Modifier.weight(1f)
+          )
+          FilterChip(
+            selected = templatesTab == 1,
+            onClick = { templatesTab = 1 },
+            label = { Text("Built-in Presets (${TemplatePresets.allTemplates.size})") },
+            modifier = Modifier.weight(1f)
+          )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        if (templatesTab == 0) {
+          // My Internal Templates
+          if (customTemplates.isEmpty()) {
+            Box(
+              modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
+                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+                .padding(16.dp),
+              contentAlignment = Alignment.Center
+            ) {
+              Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text("📄", fontSize = 32.sp)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text("No saved internal templates yet", color = Color(0xFF1E1B4B), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("Tap 'Save Current as Template' to store your custom designs here!", color = Color(0xFF64748B), fontSize = 11.sp)
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                  onClick = {
+                    showTemplatesModal = false
+                    showSaveTemplateDialog = true
+                  },
+                  colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED))
+                ) {
+                  Text("Save Current Code as Template")
+                }
+              }
+            }
+          } else {
+            LazyColumn(
+              modifier = Modifier
+                .fillMaxWidth()
+                .height(380.dp),
+              verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+              items(customTemplates, key = { it.id }) { tpl ->
+                Card(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                      viewModel.loadCustomTemplate(tpl)
+                      textFieldValue = TextFieldValue(tpl.htmlContent, TextRange(tpl.htmlContent.length))
+                      showTemplatesModal = false
+                      Toast.makeText(context, "Loaded \"${tpl.title}\"!", Toast.LENGTH_SHORT).show()
+                    },
+                  shape = RoundedCornerShape(12.dp),
+                  colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                  border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+                ) {
+                  Row(
+                    modifier = Modifier
+                      .fillMaxWidth()
+                      .padding(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                  ) {
+                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                      Text(tpl.iconEmoji, fontSize = 24.sp)
+                      Spacer(modifier = Modifier.width(12.dp))
+                      Column {
+                        Text(tpl.title, color = Color(0xFF1E1B4B), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(tpl.previewSnippet.ifBlank { "Custom saved template" }, color = Color(0xFF64748B), fontSize = 11.sp, maxLines = 1)
+                      }
+                    }
+                    IconButton(
+                      onClick = {
+                        viewModel.deleteCustomTemplate(tpl.id)
+                        Toast.makeText(context, "Deleted template", Toast.LENGTH_SHORT).show()
+                      }
+                    ) {
+                      Icon(Icons.Default.Delete, contentDescription = "Delete", tint = Color(0xFFEF4444), modifier = Modifier.size(18.dp))
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } else {
+          // Built-in presets
+          LazyColumn(
+            modifier = Modifier
+              .fillMaxWidth()
+              .height(380.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+          ) {
+            items(TemplatePresets.allTemplates, key = { it.id }) { template ->
+              Card(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .clickable {
+                    val rawHtml = HtmlEmailGenerator.generateHtml(
+                      EmailMessage(
+                        sender = sender,
+                        to = if (recipient.isNotBlank()) listOf(recipient.trim()) else listOf("recipient@example.com"),
+                        subject = template.subject,
+                        blocks = template.blocks
+                      ),
+                      evaluateVars = false
+                    )
+                    val formatted = HtmlEmailGenerator.formatHtml(rawHtml)
+                    viewModel.setSubject(template.subject)
+                    viewModel.setCustomHtml(formatted)
+                    textFieldValue = TextFieldValue(formatted, TextRange(formatted.length))
+                    showTemplatesModal = false
+                    Toast.makeText(context, "Loaded \"${template.title}\" template!", Toast.LENGTH_SHORT).show()
+                  }
+                  .testTag("workstation_template_${template.id}"),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+              ) {
+                Row(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                  Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                    Text(template.iconEmoji, fontSize = 24.sp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                      Text(template.title, color = Color(0xFF1E1B4B), fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                      Text(template.description, color = Color(0xFF64748B), fontSize = 11.sp, maxLines = 1)
+                    }
+                  }
+                  Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(20.dp))
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 3. Instant Live Preview Modal (triggered by green run button ▶)
+  if (showPreviewModal) {
+    ModalBottomSheet(
+      onDismissRequest = { showPreviewModal = false },
+      containerColor = Color.White
+    ) {
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .fillMaxHeight(0.92f)
+          .padding(horizontal = 16.dp)
+          .padding(bottom = 24.dp)
+      ) {
+        // Modal Header
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+              modifier = Modifier
+                .size(28.dp)
+                .clip(CircleShape)
+                .background(SpckGreenRun),
+              contentAlignment = Alignment.Center
+            ) {
+              Icon(Icons.Default.PlayArrow, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column {
+              Text("Live Email Preview", color = Color(0xFF1E1B4B), fontWeight = FontWeight.Bold, fontSize = 15.sp)
+              Text("Rendering index.html in real-time", color = Color(0xFF64748B), fontSize = 11.sp)
+            }
+          }
+
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            OutlinedButton(
+              onClick = { isPreviewMobileViewport = !isPreviewMobileViewport },
+              modifier = Modifier.height(32.dp),
+              colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF1E1B4B))
+            ) {
+              Icon(Icons.Default.Devices, contentDescription = null, modifier = Modifier.size(14.dp))
+              Spacer(modifier = Modifier.width(4.dp))
+              Text(if (isPreviewMobileViewport) "Mobile" else "Desktop", fontSize = 11.sp)
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            IconButton(onClick = { showPreviewModal = false }) {
+              Icon(Icons.Default.Close, contentDescription = "Close Preview", tint = Color(0xFF64748B))
+            }
+          }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        val isDarkClient = clientDarkMode != ClientDarkMode.OFF
+        val clientModalBg = when (clientDarkMode) {
+          ClientDarkMode.OFF -> Color(0xFFF1F5F9)
+          ClientDarkMode.GMAIL -> Color(0xFF121212)
+          ClientDarkMode.OUTLOOK -> Color(0xFF0F0F0F)
+          ClientDarkMode.APPLE_MAIL -> Color(0xFF18181B)
+        }
+        val clientCardBg = when (clientDarkMode) {
+          ClientDarkMode.OFF -> Color.White
+          ClientDarkMode.GMAIL -> Color(0xFF24242A)
+          ClientDarkMode.OUTLOOK -> Color(0xFF141416)
+          ClientDarkMode.APPLE_MAIL -> Color(0xFF1E1E22)
+        }
+        val clientBorder = when (clientDarkMode) {
+          ClientDarkMode.OFF -> Color(0xFFE2E8F0)
+          ClientDarkMode.GMAIL -> Color(0xFF333338)
+          ClientDarkMode.OUTLOOK -> Color(0xFF2E2E32)
+          ClientDarkMode.APPLE_MAIL -> Color(0xFF3F3F46)
+        }
+        val clientTextColor = when (clientDarkMode) {
+          ClientDarkMode.OFF -> Color(0xFF0F172A)
+          else -> Color(0xFFF1F5F9)
+        }
+        val clientSubColor = when (clientDarkMode) {
+          ClientDarkMode.OFF -> Color(0xFF64748B)
+          else -> Color(0xFF94A3B8)
+        }
+
+        // Dark Mode Client Selector
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Text(
+            text = "Client Sim:",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color(0xFF94A3B8)
+          )
+          FilterChip(
+            selected = clientDarkMode == ClientDarkMode.OFF,
+            onClick = { viewModel.setClientDarkMode(ClientDarkMode.OFF) },
+            label = { Text("☀️ Light", fontSize = 11.sp) }
+          )
+          FilterChip(
+            selected = clientDarkMode == ClientDarkMode.GMAIL,
+            onClick = { viewModel.setClientDarkMode(ClientDarkMode.GMAIL) },
+            label = { Text("🌙 Gmail Dark", fontSize = 11.sp) }
+          )
+          FilterChip(
+            selected = clientDarkMode == ClientDarkMode.OUTLOOK,
+            onClick = { viewModel.setClientDarkMode(ClientDarkMode.OUTLOOK) },
+            label = { Text("⚡ Outlook Dark", fontSize = 11.sp) }
+          )
+          FilterChip(
+            selected = clientDarkMode == ClientDarkMode.APPLE_MAIL,
+            onClick = { viewModel.setClientDarkMode(ClientDarkMode.APPLE_MAIL) },
+            label = { Text("🍎 Apple Mail Dark", fontSize = 11.sp) }
+          )
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Rendered Canvas
+        Box(
+          modifier = Modifier
+            .weight(1f)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(clientModalBg)
+            .padding(12.dp)
+            .verticalScroll(rememberScrollState()),
+          contentAlignment = Alignment.TopCenter
+        ) {
+          Card(
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = clientCardBg),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+            modifier = Modifier
+              .widthIn(max = if (isPreviewMobileViewport) 380.dp else 600.dp)
+              .fillMaxWidth()
+              .border(1.dp, clientBorder, RoundedCornerShape(12.dp))
+          ) {
+            Column(
+              modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+              verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+              // Header
+              Column {
+                Text(
+                  text = subject.ifBlank { "Subject: Preview" },
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 17.sp,
+                  color = clientTextColor
+                )
+                Text(
+                  text = "From: ${sender.displayName.ifBlank { "My Name" }} <${sender.email.ifBlank { "your.email@gmail.com" }}>  •  To: ${recipient.ifBlank { "recipient@example.com" }}",
+                  fontSize = 11.sp,
+                  color = clientSubColor
+                )
+              }
+
+              Box(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .height(1.dp)
+                  .background(clientBorder)
+              )
+
+              // Render current message blocks
+              val currentMsg = viewModel.getCurrentEmailMessage()
+              currentMsg.blocks.forEach { block ->
+                RenderVisualBlock(block, clientDarkMode)
+              }
+
+              // Attachments
+              if (attachments.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Box(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(clientBorder)
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  Icon(Icons.Default.AttachFile, contentDescription = null, tint = clientSubColor, modifier = Modifier.size(16.dp))
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Text("${attachments.size} Attachment(s)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = clientTextColor)
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                  attachments.forEach { att ->
+                    Surface(
+                      shape = RoundedCornerShape(8.dp),
+                      color = if (isDarkClient) Color(0xFF2E2E36) else Color(0xFFF8FAFC),
+                      border = androidx.compose.foundation.BorderStroke(1.dp, clientBorder),
+                      modifier = Modifier.fillMaxWidth()
+                    ) {
+                      Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text("📎 ${att.fileName} (${att.formattedSize})", fontSize = 11.sp, color = clientTextColor, maxLines = 1)
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Clean Responsive Bottom Bar inside Preview Modal
+        Surface(
+          color = Color(0xFFF8FAFC),
+          shape = RoundedCornerShape(14.dp),
+          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+          modifier = Modifier.fillMaxWidth()
+        ) {
+          Column(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(12.dp)
+          ) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.SpaceBetween,
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Text(
+                text = if (recipient.isNotBlank()) "Target: $recipient" else "⚠️ No recipient entered",
+                color = if (recipient.isNotBlank()) Color(0xFF059669) else Color(0xFFDC2626),
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.SemiBold
+              )
+              Text(
+                text = "smtp.gmail.com:465",
+                color = Color(0xFF64748B),
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace
+              )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+              OutlinedButton(
+                onClick = { showPreviewModal = false },
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF1E1B4B)),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                  .weight(1f)
+                  .height(44.dp)
+                  .testTag("preview_back_to_code_button")
+              ) {
+                Text("Back to Code", fontSize = 12.sp)
+              }
+
+              Button(
+                onClick = {
+                  showPreviewModal = false
+                  viewModel.setActiveTab(AppTab.DEPLOY)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier
+                  .weight(1.4f)
+                  .height(44.dp)
+                  .testTag("preview_modal_go_to_deploy_button")
+              ) {
+                Icon(Icons.Default.RocketLaunch, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Deploy & Send →", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // MAIN LAYOUT
+  Column(
+    modifier = Modifier
+      .fillMaxSize()
+      .background(SpckDarkBg)
+  ) {
+    // 1. Spck Top Bar (Clean Light Theme)
+    Surface(
+      color = SpckTopBarBg,
+      modifier = Modifier
+        .fillMaxWidth()
+        .border(1.dp, SpckBorder, RoundedCornerShape(0.dp))
+    ) {
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        // Left: Hamburger menu + HTML5 badge + index.html
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          IconButton(
+            onClick = { showTemplatesModal = true },
+            modifier = Modifier.size(36.dp)
+          ) {
+            Icon(Icons.Default.Menu, contentDescription = "Menu / Templates", tint = Color(0xFF1E1B4B))
+          }
+
+          Spacer(modifier = Modifier.width(4.dp))
+
+          // Red HTML5 Badge [5]
+          Box(
+            modifier = Modifier
+              .size(20.dp)
+              .clip(RoundedCornerShape(3.dp))
+              .background(SpckHtml5Red),
+            contentAlignment = Alignment.Center
+          ) {
+            Text(
+              text = "5",
+              color = Color.White,
+              fontWeight = FontWeight.ExtraBold,
+              fontSize = 11.sp,
+              fontFamily = FontFamily.Monospace
+            )
+          }
+
+          Spacer(modifier = Modifier.width(8.dp))
+
+          Text(
+            text = "index.html",
+            color = Color(0xFF1E1B4B),
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 15.sp,
+            fontFamily = FontFamily.Monospace
+          )
+        }
+
+        // Right Action Buttons: Assets, Variables, Search, GREEN RUN BUTTON ▶, More Options ⋮
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          // Assets & Local File Import Button
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(Color(0xFFE0F2FE))
+              .border(1.dp, Color(0xFFBAE6FD), RoundedCornerShape(8.dp))
+              .clickable { showAssetsModal = true }
+              .padding(horizontal = 8.dp, vertical = 5.dp)
+              .testTag("workstation_assets_button")
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.FolderOpen, contentDescription = "Local Assets & Files", tint = Color(0xFF0284C7), modifier = Modifier.size(13.dp))
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("Assets", color = Color(0xFF0369A1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+          }
+
+          Spacer(modifier = Modifier.width(6.dp))
+
+          // Variables Info Button (i)
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(Color(0xFFEDE9FE))
+              .border(1.dp, Color(0xFFC4B5FD), RoundedCornerShape(8.dp))
+              .clickable { showVariablesModal = true }
+              .padding(horizontal = 8.dp, vertical = 5.dp)
+              .testTag("workstation_vars_button")
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.Info, contentDescription = "Variables Info", tint = Color(0xFF7C3AED), modifier = Modifier.size(13.dp))
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("Vars (i)", color = Color(0xFF5B21B6), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+          }
+
+          Spacer(modifier = Modifier.width(6.dp))
+
+          // Search Icon
+          IconButton(
+            onClick = { showSearchOverlay = !showSearchOverlay },
+            modifier = Modifier.size(36.dp).testTag("workstation_search_icon")
+          ) {
+            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color(0xFF475569))
+          }
+
+          Spacer(modifier = Modifier.width(6.dp))
+
+          // GREEN RUN BUTTON ▶ (Opens preview instantly!)
+          Box(
+            modifier = Modifier
+              .size(34.dp)
+              .clip(CircleShape)
+              .background(SpckGreenRun)
+              .clickable {
+                showPreviewModal = true
+              }
+              .testTag("green_run_button"),
+            contentAlignment = Alignment.Center
+          ) {
+            Icon(
+              Icons.Default.PlayArrow,
+              contentDescription = "Run / Live Preview",
+              tint = Color.White,
+              modifier = Modifier.size(22.dp)
+            )
+          }
+
+          Spacer(modifier = Modifier.width(6.dp))
+
+          // More Options ⋮
+          Box {
+            IconButton(
+              onClick = { showMenuDropdown = true },
+              modifier = Modifier.size(36.dp).testTag("workstation_overflow_menu")
+            ) {
+              Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color(0xFF475569))
+            }
+
+            DropdownMenu(
+              expanded = showMenuDropdown,
+              onDismissRequest = { showMenuDropdown = false },
+              modifier = Modifier.background(Color.White)
+            ) {
+              DropdownMenuItem(
+                text = { Text("📁 Local Assets & Files (Img/PDF/HTML)", color = Color(0xFF0369A1), fontWeight = FontWeight.Bold) },
+                onClick = {
+                  showMenuDropdown = false
+                  showAssetsModal = true
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("💾 Save as Internal Template", color = Color(0xFF6D28D9), fontWeight = FontWeight.Bold) },
+                onClick = {
+                  showMenuDropdown = false
+                  showSaveTemplateDialog = true
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("📝 Save to Room Drafts", color = Color(0xFF0D9488), fontWeight = FontWeight.Bold) },
+                onClick = {
+                  showMenuDropdown = false
+                  viewModel.saveCurrentDraft()
+                  Toast.makeText(context, "Saved HTML email to Room Drafts!", Toast.LENGTH_SHORT).show()
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("ℹ Variables Info (i)", color = Color(0xFF0284C7), fontWeight = FontWeight.Bold) },
+                onClick = {
+                  showMenuDropdown = false
+                  showVariablesModal = true
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("✦ Templates Library", color = Color(0xFF059669), fontWeight = FontWeight.Bold) },
+                onClick = {
+                  showMenuDropdown = false
+                  showTemplatesModal = true
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("🗑 Clear Page", color = Color(0xFFDC2626), fontWeight = FontWeight.Bold) },
+                onClick = {
+                  showMenuDropdown = false
+                  showClearConfirmDialog = true
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("⇥ Format / Indent HTML", color = Color(0xFF1E293B)) },
+                onClick = {
+                  showMenuDropdown = false
+                  viewModel.formatCurrentCustomHtml()
+                  Toast.makeText(context, "HTML formatted with indentation!", Toast.LENGTH_SHORT).show()
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("↺ Reset from Visual Blocks", color = Color(0xFFD97706)) },
+                onClick = {
+                  showMenuDropdown = false
+                  viewModel.resetCustomHtmlFromBlocks()
+                  Toast.makeText(context, "Reset from visual composer!", Toast.LENGTH_SHORT).show()
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("📋 Copy All Code", color = Color(0xFF1E293B)) },
+                onClick = {
+                  showMenuDropdown = false
+                  val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                  clipboard.setPrimaryClip(ClipData.newPlainText("HTML", textFieldValue.text))
+                  Toast.makeText(context, "Copied all code!", Toast.LENGTH_SHORT).show()
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("📥 Send Test to My Inbox", color = Color(0xFF059669), fontWeight = FontWeight.Bold) },
+                onClick = {
+                  showMenuDropdown = false
+                  Toast.makeText(context, "Sending test directly to your inbox...", Toast.LENGTH_SHORT).show()
+                  viewModel.sendToMyInbox()
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("📱 Send via Gmail App (100% Inbox)", color = Color(0xFFE11D48), fontWeight = FontWeight.Bold) },
+                onClick = {
+                  showMenuDropdown = false
+                  viewModel.sendViaDeviceEmailApp(context)
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("✉ Send via Gmail SMTP", color = Color(0xFF2563EB), fontWeight = FontWeight.Bold) },
+                onClick = {
+                  showMenuDropdown = false
+                  viewModel.sendEmail()
+                }
+              )
+            }
+          }
+        }
+      }
+
+      // Search Bar Overlay (if open)
+      AnimatedVisibility(visible = showSearchOverlay) {
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF8FAFC))
+            .border(1.dp, SpckBorder, RoundedCornerShape(0.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { searchQuery = it },
+            placeholder = { Text("Find text in code...", color = Color(0xFF64748B), fontSize = 12.sp) },
+            singleLine = true,
+            textStyle = TextStyle(color = Color(0xFF1E293B), fontSize = 12.sp, fontFamily = FontFamily.Monospace),
+            modifier = Modifier.weight(1f).height(44.dp),
+            shape = RoundedCornerShape(8.dp)
+          )
+          Spacer(modifier = Modifier.width(6.dp))
+          IconButton(onClick = { showSearchOverlay = false }) {
+            Icon(Icons.Default.Close, contentDescription = "Close search", tint = Color(0xFF64748B))
+          }
+        }
+      }
+    }
+
+    // 2. Editor Tab Bar (Clean Light Theme)
+    Surface(
+      color = Color(0xFFF8FAFC),
+      modifier = Modifier
+        .fillMaxWidth()
+        .border(1.dp, SpckBorder, RoundedCornerShape(0.dp))
+    ) {
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 8.dp, vertical = 3.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        // Tab: [5] index.html
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          modifier = Modifier
+            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+            .background(SpckTabBg)
+            .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
+            .padding(horizontal = 10.dp, vertical = 5.dp)
+        ) {
+          Box(
+            modifier = Modifier
+              .size(16.dp)
+              .clip(RoundedCornerShape(2.dp))
+              .background(SpckHtml5Red),
+            contentAlignment = Alignment.Center
+          ) {
+            Text(
+              text = "5",
+              color = Color.White,
+              fontWeight = FontWeight.Bold,
+              fontSize = 9.sp,
+              fontFamily = FontFamily.Monospace
+            )
+          }
+          Spacer(modifier = Modifier.width(6.dp))
+          Text(
+            text = "index.html",
+            color = Color(0xFF1E1B4B),
+            fontSize = 12.sp,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Medium
+          )
+        }
+
+        // Quick Workstation Action Chips: Assets, Save Tpl, Templates, Clear Page
+        Row(
+          horizontalArrangement = Arrangement.spacedBy(6.dp),
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          // Assets / Attachments Chip
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(6.dp))
+              .background(Color(0xFFEFF6FF))
+              .border(1.dp, Color(0xFFBFDBFE), RoundedCornerShape(6.dp))
+              .clickable { showAssetsModal = true }
+              .padding(horizontal = 8.dp, vertical = 4.dp)
+              .testTag("assets_button_tab")
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Text("📁", fontSize = 11.sp)
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("Assets (${attachments.size})", color = Color(0xFF1D4ED8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+          }
+
+          // Save Draft Button (Room)
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(6.dp))
+              .background(Color(0xFFCCFBF1))
+              .border(1.dp, Color(0xFF99F6E4), RoundedCornerShape(6.dp))
+              .clickable {
+                viewModel.saveCurrentDraft()
+                Toast.makeText(context, "Saved to Room Drafts!", Toast.LENGTH_SHORT).show()
+              }
+              .padding(horizontal = 8.dp, vertical = 4.dp)
+              .testTag("save_draft_button_tab")
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Text("📝", fontSize = 11.sp)
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("Draft", color = Color(0xFF0F766E), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+          }
+
+          // Save Template Button
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(6.dp))
+              .background(Color(0xFFEDE9FE))
+              .border(1.dp, Color(0xFFC4B5FD), RoundedCornerShape(6.dp))
+              .clickable { showSaveTemplateDialog = true }
+              .padding(horizontal = 8.dp, vertical = 4.dp)
+              .testTag("save_template_button_tab")
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Text("💾", fontSize = 11.sp)
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("Save Tpl", color = Color(0xFF5B21B6), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+          }
+
+          // Templates Button
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(6.dp))
+              .background(Color(0xFFE0F2FE))
+              .border(1.dp, Color(0xFFBAE6FD), RoundedCornerShape(6.dp))
+              .clickable { showTemplatesModal = true }
+              .padding(horizontal = 8.dp, vertical = 4.dp)
+              .testTag("templates_button_tab")
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF0284C7), modifier = Modifier.size(12.dp))
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("Templates", color = Color(0xFF0369A1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+          }
+
+          // Clear Page Button (Triggers CANCEL/OK confirmation dialog!)
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(6.dp))
+              .background(Color(0xFFFEE2E2))
+              .border(1.dp, Color(0xFFFECACA), RoundedCornerShape(6.dp))
+              .clickable { showClearConfirmDialog = true }
+              .padding(horizontal = 8.dp, vertical = 4.dp)
+              .testTag("clear_page_button_tab")
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(12.dp))
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("Clear Page", color = Color(0xFFB91C1C), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Spck Code Editor with Gutter Line Numbers
+    val editorScrollState = rememberScrollState()
+    val horizontalScrollState = rememberScrollState()
+
+    Row(
+      modifier = Modifier
+        .weight(1f)
+        .fillMaxWidth()
+        .background(SpckDarkBg)
+        .verticalScroll(editorScrollState)
+    ) {
+      // Line Numbers Gutter
+      Column(
+        modifier = Modifier
+          .width(48.dp)
+          .background(SpckGutterBg)
+          .padding(vertical = 10.dp, horizontal = 6.dp),
+        horizontalAlignment = Alignment.End
+      ) {
+        for (i in 1..lineCount) {
+          Text(
+            text = "$i",
+            color = if (i == currentLine) Color(0xFF7C3AED) else SpckTextGutter,
+            fontWeight = if (i == currentLine) FontWeight.Bold else FontWeight.Normal,
+            fontSize = 12.sp,
+            fontFamily = FontFamily.Monospace,
+            lineHeight = 20.sp
+          )
+        }
+      }
+
+      // Vertical Gutter Divider
+      Box(
+        modifier = Modifier
+          .width(1.dp)
+          .fillMaxHeight()
+          .background(SpckBorder)
+      )
+
+      // Code Editing Canvas
+      Box(
+        modifier = Modifier
+          .weight(1f)
+          .padding(horizontal = 10.dp, vertical = 10.dp)
+          .horizontalScroll(horizontalScrollState)
+      ) {
+        BasicTextField(
+          value = textFieldValue,
+          onValueChange = {
+            textFieldValue = it
+            viewModel.setCustomHtml(it.text)
+          },
+          textStyle = TextStyle(
+            color = Color(0xFF1E293B),
+            fontFamily = FontFamily.Monospace,
+            fontSize = 12.sp,
+            lineHeight = 20.sp
+          ),
+          visualTransformation = remember { HtmlSyntaxVisualTransformation(isDark = false) },
+          cursorBrush = SolidColor(Color(0xFF7C3AED)),
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("spck_code_editor_input")
+        )
+      }
+    }
+
+    // 4. Spck Status Bar (Matches Screenshot: Ln 1149, Col 8   Sp: 2  HTML  LF  UTF-8)
+    Surface(
+      color = Color(0xFFF1F5F9),
+      modifier = Modifier
+        .fillMaxWidth()
+        .border(1.dp, SpckBorder, RoundedCornerShape(0.dp))
+    ) {
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 14.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Text(
+          text = "Ln $currentLine, Col $currentCol",
+          color = Color(0xFF64748B),
+          fontSize = 11.sp,
+          fontFamily = FontFamily.Monospace
+        )
+
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+          Text("Sp: 2", color = Color(0xFF64748B), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+          Text("HTML", color = Color(0xFF7C3AED), fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+          Text("LF", color = Color(0xFF64748B), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+          Text("UTF-8", color = Color(0xFF64748B), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+        }
+      }
+    }
+
+    // 5. Spck Bottom Accessory / Navigation Bar (Matches Screenshot: ->|, ^, v, <, >, etc.)
+    Surface(
+      color = Color(0xFFF1F5F9),
+      modifier = Modifier
+        .fillMaxWidth()
+        .border(1.dp, SpckBorder, RoundedCornerShape(0.dp))
+    ) {
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .horizontalScroll(rememberScrollState())
+          .padding(horizontal = 8.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        // Tab / Indent 2 spaces ->|
+        SpckAccessoryKey("⇥") {
+          val sel = textFieldValue.selection.start
+          val newText = textFieldValue.text.substring(0, sel) + "  " + textFieldValue.text.substring(sel)
+          textFieldValue = TextFieldValue(newText, TextRange(sel + 2))
+          viewModel.setCustomHtml(newText)
+        }
+
+        // Left <
+        SpckAccessoryKey("◀") {
+          val newPos = (textFieldValue.selection.start - 1).coerceAtLeast(0)
+          textFieldValue = textFieldValue.copy(selection = TextRange(newPos))
+        }
+
+        // Right >
+        SpckAccessoryKey("▶") {
+          val newPos = (textFieldValue.selection.start + 1).coerceAtMost(textFieldValue.text.length)
+          textFieldValue = textFieldValue.copy(selection = TextRange(newPos))
+        }
+
+        // Characters: <, >, /, ", =, {}
+        SpckAccessoryKey("<") {
+          insertChar(textFieldValue, "<") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
+        }
+        SpckAccessoryKey(">") {
+          insertChar(textFieldValue, ">") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
+        }
+        SpckAccessoryKey("/") {
+          insertChar(textFieldValue, "/") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
+        }
+        SpckAccessoryKey("\"") {
+          insertChar(textFieldValue, "\"\"") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
+        }
+        SpckAccessoryKey("=") {
+          insertChar(textFieldValue, "=") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
+        }
+        SpckAccessoryKey("<!-- -->") {
+          insertChar(textFieldValue, "<!--  -->") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
+        }
+
+        // Direct Asset Actions: 📁 +Asset, 🖼 +Img, 📄 +PDF, 🌐 +HTML
+        SpckSnippetPill("📁 +Asset") {
+          showAssetsModal = true
+        }
+        SpckSnippetPill("🖼 +Img") {
+          imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        }
+        SpckSnippetPill("📄 +PDF") {
+          pdfPickerLauncher.launch("application/pdf")
+        }
+        SpckSnippetPill("🌐 +HTML") {
+          htmlFilePickerLauncher.launch("*/*")
+        }
+
+        // Snippets: +btn, +img, +table
+        SpckSnippetPill("+btn") {
+          val snippet = """<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0;"><tr><td align="center"><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td align="center" bgcolor="#4F46E5" style="border-radius: 8px;"><a href="https://google.com" target="_blank" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 8px;">Explore Now →</a></td></tr></table></td></tr></table>"""
+          insertChar(textFieldValue, "\n" + snippet + "\n") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
+        }
+
+        SpckSnippetPill("+img") {
+          val snippet = """<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0;"><tr><td align="center"><img src="https://media.giphy.com/media/26AHONQ79FdWZhAI0/giphy.gif" alt="Celebration" style="width: 100%; max-width: 90%; border-radius: 12px; display: block; border: 0;" /></td></tr></table>"""
+          insertChar(textFieldValue, "\n" + snippet + "\n") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
+        }
+
+        SpckSnippetPill("+table") {
+          val snippet = """<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td>Content</td></tr></table>"""
+          insertChar(textFieldValue, "\n" + snippet + "\n") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
+        }
+
+        SpckSnippetPill("🌙 Dark CSS") {
+          val snippet = """<style>
+  @media (prefers-color-scheme: dark) {
+    body, center { background-color: #121212 !important; }
+    .email-card { background-color: #1e1e24 !important; border-color: #334155 !important; }
+    h1, h2, h3, p, span { color: #f1f5f9 !important; }
+  }
+  [data-ogsc] body { background-color: #121212 !important; }
+  [data-ogsc] .email-card { background-color: #1e1e24 !important; }
+</style>"""
+          insertChar(textFieldValue, "\n" + snippet + "\n") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
+        }
+
+
+        // Template Variables
+        SpckSnippetPill("{{MyEmail}}") {
+          insertTextAtCursor("{{MyEmail}}")
+        }
+        SpckSnippetPill("{{RecipientEmail}}") {
+          insertTextAtCursor("{{RecipientEmail}}")
+        }
+        SpckSnippetPill("{{MyPassword}}") {
+          insertTextAtCursor("{{MyPassword}}")
+        }
+        SpckSnippetPill("{{SenderName}}") {
+          insertTextAtCursor("{{SenderName}}")
+        }
+        SpckSnippetPill("{{Subject}}") {
+          insertTextAtCursor("{{Subject}}")
+        }
+      }
+    }
+  }
+}
+
+@Composable
+fun SpckAccessoryKey(
+  label: String,
+  onClick: () -> Unit
+) {
+  Box(
+    modifier = Modifier
+      .clip(RoundedCornerShape(4.dp))
+      .background(Color.White)
+      .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(4.dp))
+      .clickable(onClick = onClick)
+      .padding(horizontal = 10.dp, vertical = 6.dp),
+    contentAlignment = Alignment.Center
+  ) {
+    Text(
+      text = label,
+      color = Color(0xFF1E293B),
+      fontSize = 12.sp,
+      fontFamily = FontFamily.Monospace,
+      fontWeight = FontWeight.Bold
+    )
+  }
+}
+
+@Composable
+fun SpckSnippetPill(
+  label: String,
+  onClick: () -> Unit
+) {
+  Box(
+    modifier = Modifier
+      .clip(RoundedCornerShape(4.dp))
+      .background(Color(0xFFEDE9FE))
+      .border(1.dp, Color(0xFFC4B5FD), RoundedCornerShape(4.dp))
+      .clickable(onClick = onClick)
+      .padding(horizontal = 8.dp, vertical = 6.dp),
+    contentAlignment = Alignment.Center
+  ) {
+    Text(
+      text = label,
+      color = Color(0xFF6D28D9),
+      fontSize = 11.sp,
+      fontFamily = FontFamily.Monospace,
+      fontWeight = FontWeight.Bold
+    )
+  }
+}
+
+private fun insertChar(
+  current: TextFieldValue,
+  strToInsert: String,
+  onResult: (TextFieldValue) -> Unit
+) {
+  val start = current.selection.start.coerceIn(0, current.text.length)
+  val end = current.selection.end.coerceIn(0, current.text.length)
+  val minPos = minOf(start, end)
+  val maxPos = maxOf(start, end)
+  val newText = current.text.substring(0, minPos) + strToInsert + current.text.substring(maxPos)
+  val newCursor = minPos + strToInsert.length
+  onResult(TextFieldValue(newText, TextRange(newCursor)))
+}
