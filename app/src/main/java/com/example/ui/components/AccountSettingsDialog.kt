@@ -48,6 +48,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -91,6 +92,8 @@ fun AccountSettingsDialog(
   currentAccount: SenderAccount,
   isTesting: Boolean,
   testResult: SmtpSendResult?,
+  isDark: Boolean = false,
+  onToggleDarkMode: (() -> Unit)? = null,
   onDismiss: () -> Unit,
   onSave: (SenderAccount) -> Unit,
   onTestConnection: (SenderAccount) -> Unit,
@@ -166,12 +169,12 @@ fun AccountSettingsDialog(
             Spacer(modifier = Modifier.width(12.dp))
             Column {
               Text(
-                text = "Account & Credentials",
+                text = "Account & Settings",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
               )
               Text(
-                text = "Configure Gmail SMTP and Profile",
+                text = "Theme, Gmail SMTP and Profile",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
               )
@@ -179,6 +182,58 @@ fun AccountSettingsDialog(
           }
           IconButton(onClick = onDismiss) {
             Icon(Icons.Default.Close, contentDescription = "Close")
+          }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Dark Mode Toggle Card
+        Card(
+          shape = RoundedCornerShape(16.dp),
+          colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+          modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onToggleDarkMode?.invoke() }
+            .testTag("settings_dark_mode_card")
+        ) {
+          Row(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Box(
+                modifier = Modifier
+                  .size(36.dp)
+                  .clip(CircleShape)
+                  .background(if (isDark) Color(0xFF312E81) else Color(0xFFFEF3C7)),
+                contentAlignment = Alignment.Center
+              ) {
+                Text(
+                  text = if (isDark) "🌙" else "☀️",
+                  fontSize = 18.sp
+                )
+              }
+              Spacer(modifier = Modifier.width(12.dp))
+              Column {
+                Text(
+                  text = "Dark Mode",
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 14.sp
+                )
+                Text(
+                  text = if (isDark) "Enabled" else "Disabled (matches device)",
+                  fontSize = 11.sp,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+              }
+            }
+            Switch(
+              checked = isDark,
+              onCheckedChange = { onToggleDarkMode?.invoke() }
+            )
           }
         }
 

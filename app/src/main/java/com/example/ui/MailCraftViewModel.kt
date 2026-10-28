@@ -61,7 +61,7 @@ class MailCraftViewModel(application: Application) : AndroidViewModel(applicatio
     application,
     MailCraftDatabase::class.java,
     "mailcraft_db"
-  ).fallbackToDestructiveMigration().build()
+  ).fallbackToDestructiveMigration(true).build()
   private val mailDao = database.mailDao()
 
   val senderAccount: StateFlow<SenderAccount> = settingsManager.senderAccount
@@ -108,13 +108,21 @@ class MailCraftViewModel(application: Application) : AndroidViewModel(applicatio
   private val _clientDarkMode = MutableStateFlow(ClientDarkMode.OFF)
   val clientDarkMode: StateFlow<ClientDarkMode> = _clientDarkMode.asStateFlow()
 
-  private val _isAppDarkMode = MutableStateFlow(settingsManager.isDarkMode())
+  private val isSystemDarkDefault: Boolean =
+    (application.resources.configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+
+  private val _isAppDarkMode = MutableStateFlow(settingsManager.isDarkMode(isSystemDarkDefault))
   val isAppDarkMode: StateFlow<Boolean> = _isAppDarkMode.asStateFlow()
 
   fun toggleAppDarkMode() {
     val next = !_isAppDarkMode.value
     _isAppDarkMode.value = next
     settingsManager.saveDarkMode(next)
+  }
+
+  fun setAppDarkMode(isDark: Boolean) {
+    _isAppDarkMode.value = isDark
+    settingsManager.saveDarkMode(isDark)
   }
 
   private val _currentDraftId = MutableStateFlow<Long?>(null)
@@ -183,10 +191,16 @@ class MailCraftViewModel(application: Application) : AndroidViewModel(applicatio
           )
         },
         onFailure = { err ->
-          _aiError.value = err.localizedMessage ?: "Failed to get AI response."
+          val raw = err.localizedMessage.orEmpty()
+          val friendly = if (raw.contains("OpenRouter", ignoreCase = true) || raw.contains("404") || raw.contains("claude", ignoreCase = true) || raw.contains("provider", ignoreCase = true)) {
+            "MailCraft AI is momentarily busy. Please try sending your message again."
+          } else {
+            raw.ifBlank { "MailCraft AI is momentarily busy. Please check your connection and try again." }
+          }
+          _aiError.value = friendly
           _aiChatMessages.value = _aiChatMessages.value + AiChatMessage(
             role = "assistant",
-            content = "⚠️ ${err.localizedMessage ?: "Something went wrong while contacting the AI service. Please check your network and API key."}"
+            content = "⚠️ $friendly"
           )
         }
       )
@@ -211,14 +225,17 @@ class MailCraftViewModel(application: Application) : AndroidViewModel(applicatio
   }
 
   fun fixHtmlWithAi(
+    html: String? = null,
     instruction: String = "Fix unclosed tags, inline styles, add responsive tables for Gmail and Outlook, and beautify design",
     onSuccess: (String) -> Unit,
     onError: (String) -> Unit
   ) {
-    val currentHtml = if (_isCustomHtmlActive.value && _customHtmlContent.value.isNotBlank()) {
+    val currentHtml = if (!html.isNullOrBlank()) {
+      html
+    } else if (_isCustomHtmlActive.value && _customHtmlContent.value.isNotBlank()) {
       _customHtmlContent.value
     } else {
-      HtmlEmailGenerator.generateHtml(getCurrentEmailMessage(), _clientDarkMode.value)
+      HtmlEmailGenerator.generateHtml(getCurrentEmailMessage(), evaluateVars = false)
     }
 
     _isAiThinking.value = true

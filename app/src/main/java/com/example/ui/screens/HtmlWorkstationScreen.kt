@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -140,9 +141,21 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
   val sender by viewModel.senderAccount.collectAsState()
   val clientDarkMode by viewModel.clientDarkMode.collectAsState()
   val attachments by viewModel.attachments.collectAsState()
+  val isDark by viewModel.isAppDarkMode.collectAsState()
+
+  val wsDarkBg = if (isDark) Color(0xFF16181B) else Color(0xFFF8FAFC)
+  val wsTopBarBg = if (isDark) Color(0xFF1E2024) else Color(0xFFF1F5F9)
+  val wsGutterBg = if (isDark) Color(0xFF1A1C20) else Color(0xFFF1F5F9)
+  val wsTabBg = if (isDark) Color(0xFF282B31) else Color(0xFFFFFFFF)
+  val wsBorder = if (isDark) Color(0xFF2C3038) else Color(0xFFE2E8F0)
+  val wsTextGutter = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
+  val wsCodeColor = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+  val wsTextColor = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E1B4B)
+  val wsSubtextColor = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+  val wsModalBg = if (isDark) Color(0xFF1E2024) else Color.White
+  val wsCardBg = if (isDark) Color(0xFF26292E) else Color(0xFFF8FAFC)
 
   // Make sure custom HTML is populated on first entrance
-
   LaunchedEffect(Unit) {
     if (customHtml.isBlank()) {
       viewModel.enableCustomHtmlMode()
@@ -175,6 +188,11 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
   var isPreviewMobileViewport by remember { mutableStateOf(false) }
   var showAssetsModal by remember { mutableStateOf(false) }
   var assetModalTab by remember { mutableStateOf(0) }
+  var showAiModal by remember { mutableStateOf(false) }
+  var aiModalTab by remember { mutableStateOf(0) }
+  var aiGenPrompt by remember { mutableStateOf("") }
+  var aiGenStyle by remember { mutableStateOf("Modern & Responsive") }
+  var isAiWorking by remember { mutableStateOf(false) }
 
   val insertTextAtCursor: (String) -> Unit = { textToInsert ->
     insertChar(textFieldValue, textToInsert) {
@@ -316,7 +334,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
           lineHeight = 20.sp
         )
       },
-      containerColor = Color.White,
+      containerColor = wsModalBg,
       confirmButton = {
         Button(
           onClick = {
@@ -360,7 +378,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
   if (showVariablesModal) {
     AlertDialog(
       onDismissRequest = { showVariablesModal = false },
-      containerColor = Color.White,
+      containerColor = wsModalBg,
       title = {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(24.dp))
@@ -449,7 +467,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
   if (showSaveTemplateDialog) {
     AlertDialog(
       onDismissRequest = { showSaveTemplateDialog = false },
-      containerColor = Color.White,
+      containerColor = wsModalBg,
       title = {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Text("Save Internal Template 💾", fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B))
@@ -538,7 +556,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
     ModalBottomSheet(
       onDismissRequest = { showAssetsModal = false },
       sheetState = sheetState,
-      containerColor = Color.White
+      containerColor = wsModalBg
     ) {
       Column(
         modifier = Modifier
@@ -882,7 +900,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
     ModalBottomSheet(
       onDismissRequest = { showTemplatesModal = false },
       sheetState = sheetState,
-      containerColor = Color.White
+      containerColor = wsModalBg
     ) {
       Column(
         modifier = Modifier
@@ -1068,11 +1086,268 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
     }
   }
 
+  // 2.5 MailCraft AI HTML Assistant Modal
+  if (showAiModal) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+      onDismissRequest = { if (!isAiWorking) showAiModal = false },
+      sheetState = sheetState,
+      containerColor = wsModalBg
+    ) {
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 20.dp)
+          .padding(bottom = 32.dp)
+      ) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+              modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFEDE9FE)),
+              contentAlignment = Alignment.Center
+            ) {
+              Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column {
+              Text("MailCraft AI Assistant", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Color(0xFF1E1B4B))
+              Text("HTML optimization, generation & client compatibility", fontSize = 11.sp, color = Color(0xFF64748B))
+            }
+          }
+          IconButton(onClick = { if (!isAiWorking) showAiModal = false }) {
+            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF64748B))
+          }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Mode Tabs
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          FilterChip(
+            selected = aiModalTab == 0,
+            onClick = { aiModalTab = 0 },
+            label = { Text("🔧 Fix & Beautify") },
+            modifier = Modifier.weight(1f)
+          )
+          FilterChip(
+            selected = aiModalTab == 1,
+            onClick = { aiModalTab = 1 },
+            label = { Text("⚡ Prompt to HTML") },
+            modifier = Modifier.weight(1f)
+          )
+          FilterChip(
+            selected = aiModalTab == 2,
+            onClick = { aiModalTab = 2 },
+            label = { Text("💬 Support Bot") },
+            modifier = Modifier.weight(1f)
+          )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        when (aiModalTab) {
+          0 -> {
+            // Fix & Optimize HTML
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+              Card(
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                  Text("What the AI Optimizer does:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF1E1B4B))
+                  Text("• Repairs broken tags, nesting errors, and unclosed elements", fontSize = 12.sp, color = Color(0xFF475569))
+                  Text("• Converts fragile CSS classes to bulletproof inline CSS styles", fontSize = 12.sp, color = Color(0xFF475569))
+                  Text("• Ensures Gmail, Apple Mail & Outlook mobile responsiveness", fontSize = 12.sp, color = Color(0xFF475569))
+                  Text("• Adds table role=\"presentation\" and cellspacing/cellpadding attributes", fontSize = 12.sp, color = Color(0xFF475569))
+                }
+              }
+
+              Button(
+                onClick = {
+                  if (textFieldValue.text.isBlank()) {
+                    Toast.makeText(context, "No HTML code to fix!", Toast.LENGTH_SHORT).show()
+                    return@Button
+                  }
+                  isAiWorking = true
+                  viewModel.fixHtmlWithAi(
+                    html = textFieldValue.text,
+                    onSuccess = { fixed ->
+                      isAiWorking = false
+                      val formatted = HtmlEmailGenerator.formatHtml(fixed)
+                      viewModel.setCustomHtml(formatted)
+                      textFieldValue = TextFieldValue(formatted, TextRange(formatted.length))
+                      showAiModal = false
+                      Toast.makeText(context, "HTML code fixed & beautified!", Toast.LENGTH_SHORT).show()
+                    },
+                    onError = { err ->
+                      isAiWorking = false
+                      Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                    }
+                  )
+                },
+                enabled = !isAiWorking,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .height(48.dp)
+                  .testTag("ai_fix_html_submit_button")
+              ) {
+                if (isAiWorking) {
+                  androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                  Spacer(modifier = Modifier.width(8.dp))
+                  Text("Optimizing & Fixing HTML...", fontWeight = FontWeight.Bold)
+                } else {
+                  Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                  Spacer(modifier = Modifier.width(8.dp))
+                  Text("Fix & Beautify Current HTML", fontWeight = FontWeight.Bold)
+                }
+              }
+            }
+          }
+
+          1 -> {
+            // Generate HTML from Prompt
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+              Text("Select Email Design Style:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+              Row(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+              ) {
+                listOf("Modern & Responsive", "Minimalist Clean", "High-Energy Sale", "Corporate Newsletter", "Receipt / Invoice").forEach { st ->
+                  FilterChip(
+                    selected = aiGenStyle == st,
+                    onClick = { aiGenStyle = st },
+                    label = { Text(st, fontSize = 11.sp) }
+                  )
+                }
+              }
+
+              OutlinedTextField(
+                value = aiGenPrompt,
+                onValueChange = { aiGenPrompt = it },
+                label = { Text("Describe the email template") },
+                placeholder = { Text("e.g., Cyber Week flash sale with 40% discount, dark background banner, coupon badge, and dual CTA buttons...") },
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .heightIn(min = 100.dp)
+                  .testTag("ai_html_prompt_input"),
+                shape = RoundedCornerShape(12.dp),
+                maxLines = 4
+              )
+
+              Button(
+                onClick = {
+                  if (aiGenPrompt.isBlank()) {
+                    Toast.makeText(context, "Please describe the email template", Toast.LENGTH_SHORT).show()
+                    return@Button
+                  }
+                  isAiWorking = true
+                  viewModel.generateHtmlWithAi(
+                    prompt = aiGenPrompt.trim(),
+                    style = aiGenStyle,
+                    onSuccess = { generatedHtml ->
+                      isAiWorking = false
+                      val formatted = HtmlEmailGenerator.formatHtml(generatedHtml)
+                      viewModel.setCustomHtml(formatted)
+                      textFieldValue = TextFieldValue(formatted, TextRange(formatted.length))
+                      showAiModal = false
+                      Toast.makeText(context, "New HTML generated & loaded!", Toast.LENGTH_SHORT).show()
+                    },
+                    onError = { err ->
+                      isAiWorking = false
+                      Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                    }
+                  )
+                },
+                enabled = !isAiWorking,
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .height(48.dp)
+                  .testTag("ai_generate_html_submit_button")
+              ) {
+                if (isAiWorking) {
+                  androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                  Spacer(modifier = Modifier.width(8.dp))
+                  Text("Generating Responsive HTML...", fontWeight = FontWeight.Bold)
+                } else {
+                  Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                  Spacer(modifier = Modifier.width(8.dp))
+                  Text("Generate & Load into Editor", fontWeight = FontWeight.Bold)
+                }
+              }
+            }
+          }
+
+          2 -> {
+            // Support Bot Shortcut
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+              Card(
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFEDE9FE)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDDD6FE)),
+                modifier = Modifier.fillMaxWidth()
+              ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(24.dp))
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text("MailCraft Support Bot", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF1E1B4B))
+                  }
+                  Spacer(modifier = Modifier.height(8.dp))
+                  Text(
+                    text = "Chat interactively with the MailCraft AI assistant to debug SMTP issues (like Google 535 errors), audit spam triggers, draft custom layouts, or learn best practices.",
+                    fontSize = 12.sp,
+                    color = Color(0xFF4C1D95),
+                    lineHeight = 17.sp
+                  )
+                }
+              }
+
+              Button(
+                onClick = {
+                  showAiModal = false
+                  viewModel.setActiveTab(AppTab.AI_BOT)
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .height(48.dp)
+                  .testTag("open_support_bot_from_workstation_button")
+              ) {
+                Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Open MailCraft Support Bot →", fontWeight = FontWeight.Bold)
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   // 3. Instant Live Preview Modal (triggered by green run button ▶)
   if (showPreviewModal) {
     ModalBottomSheet(
       onDismissRequest = { showPreviewModal = false },
-      containerColor = Color.White
+      containerColor = wsModalBg
     ) {
       Column(
         modifier = Modifier
@@ -1356,14 +1631,14 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
   Column(
     modifier = Modifier
       .fillMaxSize()
-      .background(SpckDarkBg)
+      .background(wsDarkBg)
   ) {
-    // 1. Spck Top Bar (Clean Light Theme)
+    // 1. Spck Top Bar
     Surface(
-      color = SpckTopBarBg,
+      color = wsTopBarBg,
       modifier = Modifier
         .fillMaxWidth()
-        .border(1.dp, SpckBorder, RoundedCornerShape(0.dp))
+        .border(1.dp, wsBorder, RoundedCornerShape(0.dp))
     ) {
       Row(
         modifier = Modifier
@@ -1378,7 +1653,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
             onClick = { showTemplatesModal = true },
             modifier = Modifier.size(36.dp)
           ) {
-            Icon(Icons.Default.Menu, contentDescription = "Menu / Templates", tint = Color(0xFF1E1B4B))
+            Icon(Icons.Default.Menu, contentDescription = "Menu / Templates", tint = wsTextColor)
           }
 
           Spacer(modifier = Modifier.width(4.dp))
@@ -1404,7 +1679,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
 
           Text(
             text = "index.html",
-            color = Color(0xFF1E1B4B),
+            color = wsTextColor,
             fontWeight = FontWeight.SemiBold,
             fontSize = 15.sp,
             fontFamily = FontFamily.Monospace
@@ -1432,6 +1707,26 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
 
           Spacer(modifier = Modifier.width(6.dp))
 
+          // Save Draft Button (Room)
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(if (isDark) Color(0xFF134E48) else Color(0xFFCCFBF1))
+              .border(1.dp, if (isDark) Color(0xFF0D9488) else Color(0xFF99F6E4), RoundedCornerShape(8.dp))
+              .clickable {
+                viewModel.saveCurrentDraft()
+                Toast.makeText(context, "Saved to Room Drafts!", Toast.LENGTH_SHORT).show()
+              }
+              .padding(horizontal = 8.dp, vertical = 5.dp)
+              .testTag("workstation_draft_button")
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Text("📝", fontSize = 11.sp)
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("Draft", color = if (isDark) Color(0xFF5EEAD4) else Color(0xFF0F766E), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+          }
+
           // Variables Info Button (i)
           Box(
             modifier = Modifier
@@ -1446,6 +1741,25 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
               Icon(Icons.Default.Info, contentDescription = "Variables Info", tint = Color(0xFF7C3AED), modifier = Modifier.size(13.dp))
               Spacer(modifier = Modifier.width(4.dp))
               Text("Vars (i)", color = Color(0xFF5B21B6), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+          }
+
+          Spacer(modifier = Modifier.width(6.dp))
+
+          // MailCraft AI HTML Assistant Button
+          Box(
+            modifier = Modifier
+              .clip(RoundedCornerShape(8.dp))
+              .background(Color(0xFFEDE9FE))
+              .border(1.dp, Color(0xFFC4B5FD), RoundedCornerShape(8.dp))
+              .clickable { showAiModal = true }
+              .padding(horizontal = 8.dp, vertical = 5.dp)
+              .testTag("workstation_ai_assistant_button")
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(Icons.Default.AutoAwesome, contentDescription = "MailCraft AI", tint = Color(0xFF7C3AED), modifier = Modifier.size(13.dp))
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("AI", color = Color(0xFF5B21B6), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             }
           }
 
@@ -1495,7 +1809,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
             DropdownMenu(
               expanded = showMenuDropdown,
               onDismissRequest = { showMenuDropdown = false },
-              modifier = Modifier.background(Color.White)
+              modifier = Modifier.background(wsModalBg)
             ) {
               DropdownMenuItem(
                 text = { Text("📁 Local Assets & Files (Img/PDF/HTML)", color = Color(0xFF0369A1), fontWeight = FontWeight.Bold) },
@@ -1597,171 +1911,28 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
         Row(
           modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF8FAFC))
-            .border(1.dp, SpckBorder, RoundedCornerShape(0.dp))
+            .background(wsTopBarBg)
+            .border(1.dp, wsBorder, RoundedCornerShape(0.dp))
             .padding(horizontal = 12.dp, vertical = 6.dp),
           verticalAlignment = Alignment.CenterVertically
         ) {
           OutlinedTextField(
             value = searchQuery,
             onValueChange = { searchQuery = it },
-            placeholder = { Text("Find text in code...", color = Color(0xFF64748B), fontSize = 12.sp) },
+            placeholder = { Text("Find text in code...", color = wsSubtextColor, fontSize = 12.sp) },
             singleLine = true,
-            textStyle = TextStyle(color = Color(0xFF1E293B), fontSize = 12.sp, fontFamily = FontFamily.Monospace),
+            textStyle = TextStyle(color = wsTextColor, fontSize = 12.sp, fontFamily = FontFamily.Monospace),
             modifier = Modifier.weight(1f).height(44.dp),
             shape = RoundedCornerShape(8.dp)
           )
           Spacer(modifier = Modifier.width(6.dp))
           IconButton(onClick = { showSearchOverlay = false }) {
-            Icon(Icons.Default.Close, contentDescription = "Close search", tint = Color(0xFF64748B))
+            Icon(Icons.Default.Close, contentDescription = "Close search", tint = wsSubtextColor)
           }
         }
       }
     }
 
-    // 2. Editor Tab Bar (Clean Light Theme)
-    Surface(
-      color = Color(0xFFF8FAFC),
-      modifier = Modifier
-        .fillMaxWidth()
-        .border(1.dp, SpckBorder, RoundedCornerShape(0.dp))
-    ) {
-      Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(horizontal = 8.dp, vertical = 3.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-      ) {
-        // Tab: [5] index.html
-        Row(
-          verticalAlignment = Alignment.CenterVertically,
-          modifier = Modifier
-            .clip(RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
-            .background(SpckTabBg)
-            .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(topStart = 6.dp, topEnd = 6.dp))
-            .padding(horizontal = 10.dp, vertical = 5.dp)
-        ) {
-          Box(
-            modifier = Modifier
-              .size(16.dp)
-              .clip(RoundedCornerShape(2.dp))
-              .background(SpckHtml5Red),
-            contentAlignment = Alignment.Center
-          ) {
-            Text(
-              text = "5",
-              color = Color.White,
-              fontWeight = FontWeight.Bold,
-              fontSize = 9.sp,
-              fontFamily = FontFamily.Monospace
-            )
-          }
-          Spacer(modifier = Modifier.width(6.dp))
-          Text(
-            text = "index.html",
-            color = Color(0xFF1E1B4B),
-            fontSize = 12.sp,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Medium
-          )
-        }
-
-        // Quick Workstation Action Chips: Assets, Save Tpl, Templates, Clear Page
-        Row(
-          horizontalArrangement = Arrangement.spacedBy(6.dp),
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          // Assets / Attachments Chip
-          Box(
-            modifier = Modifier
-              .clip(RoundedCornerShape(6.dp))
-              .background(Color(0xFFEFF6FF))
-              .border(1.dp, Color(0xFFBFDBFE), RoundedCornerShape(6.dp))
-              .clickable { showAssetsModal = true }
-              .padding(horizontal = 8.dp, vertical = 4.dp)
-              .testTag("assets_button_tab")
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Text("📁", fontSize = 11.sp)
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("Assets (${attachments.size})", color = Color(0xFF1D4ED8), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
-          }
-
-          // Save Draft Button (Room)
-          Box(
-            modifier = Modifier
-              .clip(RoundedCornerShape(6.dp))
-              .background(Color(0xFFCCFBF1))
-              .border(1.dp, Color(0xFF99F6E4), RoundedCornerShape(6.dp))
-              .clickable {
-                viewModel.saveCurrentDraft()
-                Toast.makeText(context, "Saved to Room Drafts!", Toast.LENGTH_SHORT).show()
-              }
-              .padding(horizontal = 8.dp, vertical = 4.dp)
-              .testTag("save_draft_button_tab")
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Text("📝", fontSize = 11.sp)
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("Draft", color = Color(0xFF0F766E), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
-          }
-
-          // Save Template Button
-          Box(
-            modifier = Modifier
-              .clip(RoundedCornerShape(6.dp))
-              .background(Color(0xFFEDE9FE))
-              .border(1.dp, Color(0xFFC4B5FD), RoundedCornerShape(6.dp))
-              .clickable { showSaveTemplateDialog = true }
-              .padding(horizontal = 8.dp, vertical = 4.dp)
-              .testTag("save_template_button_tab")
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Text("💾", fontSize = 11.sp)
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("Save Tpl", color = Color(0xFF5B21B6), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
-          }
-
-          // Templates Button
-          Box(
-            modifier = Modifier
-              .clip(RoundedCornerShape(6.dp))
-              .background(Color(0xFFE0F2FE))
-              .border(1.dp, Color(0xFFBAE6FD), RoundedCornerShape(6.dp))
-              .clickable { showTemplatesModal = true }
-              .padding(horizontal = 8.dp, vertical = 4.dp)
-              .testTag("templates_button_tab")
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF0284C7), modifier = Modifier.size(12.dp))
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("Templates", color = Color(0xFF0369A1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
-          }
-
-          // Clear Page Button (Triggers CANCEL/OK confirmation dialog!)
-          Box(
-            modifier = Modifier
-              .clip(RoundedCornerShape(6.dp))
-              .background(Color(0xFFFEE2E2))
-              .border(1.dp, Color(0xFFFECACA), RoundedCornerShape(6.dp))
-              .clickable { showClearConfirmDialog = true }
-              .padding(horizontal = 8.dp, vertical = 4.dp)
-              .testTag("clear_page_button_tab")
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Icon(Icons.Default.DeleteOutline, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(12.dp))
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("Clear Page", color = Color(0xFFB91C1C), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
-          }
-        }
-      }
-    }
 
     // 3. Spck Code Editor with Gutter Line Numbers
     val editorScrollState = rememberScrollState()
@@ -1771,21 +1942,21 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
       modifier = Modifier
         .weight(1f)
         .fillMaxWidth()
-        .background(SpckDarkBg)
+        .background(wsDarkBg)
         .verticalScroll(editorScrollState)
     ) {
       // Line Numbers Gutter
       Column(
         modifier = Modifier
           .width(48.dp)
-          .background(SpckGutterBg)
+          .background(wsGutterBg)
           .padding(vertical = 10.dp, horizontal = 6.dp),
         horizontalAlignment = Alignment.End
       ) {
         for (i in 1..lineCount) {
           Text(
             text = "$i",
-            color = if (i == currentLine) Color(0xFF7C3AED) else SpckTextGutter,
+            color = if (i == currentLine) (if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED)) else wsTextGutter,
             fontWeight = if (i == currentLine) FontWeight.Bold else FontWeight.Normal,
             fontSize = 12.sp,
             fontFamily = FontFamily.Monospace,
@@ -1799,7 +1970,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
         modifier = Modifier
           .width(1.dp)
           .fillMaxHeight()
-          .background(SpckBorder)
+          .background(wsBorder)
       )
 
       // Code Editing Canvas
@@ -1816,13 +1987,13 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
             viewModel.setCustomHtml(it.text)
           },
           textStyle = TextStyle(
-            color = Color(0xFF1E293B),
+            color = wsCodeColor,
             fontFamily = FontFamily.Monospace,
             fontSize = 12.sp,
             lineHeight = 20.sp
           ),
-          visualTransformation = remember { HtmlSyntaxVisualTransformation(isDark = false) },
-          cursorBrush = SolidColor(Color(0xFF7C3AED)),
+          visualTransformation = remember(isDark) { HtmlSyntaxVisualTransformation(isDark = isDark) },
+          cursorBrush = SolidColor(if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED)),
           modifier = Modifier
             .fillMaxWidth()
             .testTag("spck_code_editor_input")
@@ -1832,10 +2003,10 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
 
     // 4. Spck Status Bar (Matches Screenshot: Ln 1149, Col 8   Sp: 2  HTML  LF  UTF-8)
     Surface(
-      color = Color(0xFFF1F5F9),
+      color = wsTopBarBg,
       modifier = Modifier
         .fillMaxWidth()
-        .border(1.dp, SpckBorder, RoundedCornerShape(0.dp))
+        .border(1.dp, wsBorder, RoundedCornerShape(0.dp))
     ) {
       Row(
         modifier = Modifier
@@ -1846,26 +2017,26 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
       ) {
         Text(
           text = "Ln $currentLine, Col $currentCol",
-          color = Color(0xFF64748B),
+          color = wsSubtextColor,
           fontSize = 11.sp,
           fontFamily = FontFamily.Monospace
         )
 
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-          Text("Sp: 2", color = Color(0xFF64748B), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-          Text("HTML", color = Color(0xFF7C3AED), fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
-          Text("LF", color = Color(0xFF64748B), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
-          Text("UTF-8", color = Color(0xFF64748B), fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+          Text("Sp: 2", color = wsSubtextColor, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+          Text("HTML", color = if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED), fontSize = 11.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+          Text("LF", color = wsSubtextColor, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
+          Text("UTF-8", color = wsSubtextColor, fontSize = 11.sp, fontFamily = FontFamily.Monospace)
         }
       }
     }
 
     // 5. Spck Bottom Accessory / Navigation Bar (Matches Screenshot: ->|, ^, v, <, >, etc.)
     Surface(
-      color = Color(0xFFF1F5F9),
+      color = wsTopBarBg,
       modifier = Modifier
         .fillMaxWidth()
-        .border(1.dp, SpckBorder, RoundedCornerShape(0.dp))
+        .border(1.dp, wsBorder, RoundedCornerShape(0.dp))
     ) {
       Row(
         modifier = Modifier
@@ -1876,7 +2047,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
         verticalAlignment = Alignment.CenterVertically
       ) {
         // Tab / Indent 2 spaces ->|
-        SpckAccessoryKey("⇥") {
+        SpckAccessoryKey("⇥", isDark = isDark) {
           val sel = textFieldValue.selection.start
           val newText = textFieldValue.text.substring(0, sel) + "  " + textFieldValue.text.substring(sel)
           textFieldValue = TextFieldValue(newText, TextRange(sel + 2))
@@ -1884,68 +2055,68 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
         }
 
         // Left <
-        SpckAccessoryKey("◀") {
+        SpckAccessoryKey("◀", isDark = isDark) {
           val newPos = (textFieldValue.selection.start - 1).coerceAtLeast(0)
           textFieldValue = textFieldValue.copy(selection = TextRange(newPos))
         }
 
         // Right >
-        SpckAccessoryKey("▶") {
+        SpckAccessoryKey("▶", isDark = isDark) {
           val newPos = (textFieldValue.selection.start + 1).coerceAtMost(textFieldValue.text.length)
           textFieldValue = textFieldValue.copy(selection = TextRange(newPos))
         }
 
         // Characters: <, >, /, ", =, {}
-        SpckAccessoryKey("<") {
+        SpckAccessoryKey("<", isDark = isDark) {
           insertChar(textFieldValue, "<") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
         }
-        SpckAccessoryKey(">") {
+        SpckAccessoryKey(">", isDark = isDark) {
           insertChar(textFieldValue, ">") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
         }
-        SpckAccessoryKey("/") {
+        SpckAccessoryKey("/", isDark = isDark) {
           insertChar(textFieldValue, "/") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
         }
-        SpckAccessoryKey("\"") {
+        SpckAccessoryKey("\"", isDark = isDark) {
           insertChar(textFieldValue, "\"\"") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
         }
-        SpckAccessoryKey("=") {
+        SpckAccessoryKey("=", isDark = isDark) {
           insertChar(textFieldValue, "=") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
         }
-        SpckAccessoryKey("<!-- -->") {
+        SpckAccessoryKey("<!-- -->", isDark = isDark) {
           insertChar(textFieldValue, "<!--  -->") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
         }
 
         // Direct Asset Actions: 📁 +Asset, 🖼 +Img, 📄 +PDF, 🌐 +HTML
-        SpckSnippetPill("📁 +Asset") {
+        SpckSnippetPill("📁 +Asset", isDark = isDark) {
           showAssetsModal = true
         }
-        SpckSnippetPill("🖼 +Img") {
+        SpckSnippetPill("🖼 +Img", isDark = isDark) {
           imagePickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
         }
-        SpckSnippetPill("📄 +PDF") {
+        SpckSnippetPill("📄 +PDF", isDark = isDark) {
           pdfPickerLauncher.launch("application/pdf")
         }
-        SpckSnippetPill("🌐 +HTML") {
+        SpckSnippetPill("🌐 +HTML", isDark = isDark) {
           htmlFilePickerLauncher.launch("*/*")
         }
 
         // Snippets: +btn, +img, +table
-        SpckSnippetPill("+btn") {
+        SpckSnippetPill("+btn", isDark = isDark) {
           val snippet = """<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0;"><tr><td align="center"><table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr><td align="center" bgcolor="#4F46E5" style="border-radius: 8px;"><a href="https://google.com" target="_blank" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 8px;">Explore Now →</a></td></tr></table></td></tr></table>"""
           insertChar(textFieldValue, "\n" + snippet + "\n") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
         }
 
-        SpckSnippetPill("+img") {
+        SpckSnippetPill("+img", isDark = isDark) {
           val snippet = """<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 20px 0;"><tr><td align="center"><img src="https://media.giphy.com/media/26AHONQ79FdWZhAI0/giphy.gif" alt="Celebration" style="width: 100%; max-width: 90%; border-radius: 12px; display: block; border: 0;" /></td></tr></table>"""
           insertChar(textFieldValue, "\n" + snippet + "\n") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
         }
 
-        SpckSnippetPill("+table") {
+        SpckSnippetPill("+table", isDark = isDark) {
           val snippet = """<table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%"><tr><td>Content</td></tr></table>"""
           insertChar(textFieldValue, "\n" + snippet + "\n") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
         }
 
-        SpckSnippetPill("🌙 Dark CSS") {
+        SpckSnippetPill("🌙 Dark CSS", isDark = isDark) {
           val snippet = """<style>
   @media (prefers-color-scheme: dark) {
     body, center { background-color: #121212 !important; }
@@ -1958,21 +2129,20 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
           insertChar(textFieldValue, "\n" + snippet + "\n") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
         }
 
-
         // Template Variables
-        SpckSnippetPill("{{MyEmail}}") {
+        SpckSnippetPill("{{MyEmail}}", isDark = isDark) {
           insertTextAtCursor("{{MyEmail}}")
         }
-        SpckSnippetPill("{{RecipientEmail}}") {
+        SpckSnippetPill("{{RecipientEmail}}", isDark = isDark) {
           insertTextAtCursor("{{RecipientEmail}}")
         }
-        SpckSnippetPill("{{MyPassword}}") {
+        SpckSnippetPill("{{MyPassword}}", isDark = isDark) {
           insertTextAtCursor("{{MyPassword}}")
         }
-        SpckSnippetPill("{{SenderName}}") {
+        SpckSnippetPill("{{SenderName}}", isDark = isDark) {
           insertTextAtCursor("{{SenderName}}")
         }
-        SpckSnippetPill("{{Subject}}") {
+        SpckSnippetPill("{{Subject}}", isDark = isDark) {
           insertTextAtCursor("{{Subject}}")
         }
       }
@@ -1983,20 +2153,21 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
 @Composable
 fun SpckAccessoryKey(
   label: String,
+  isDark: Boolean = false,
   onClick: () -> Unit
 ) {
   Box(
     modifier = Modifier
       .clip(RoundedCornerShape(4.dp))
-      .background(Color.White)
-      .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(4.dp))
+      .background(if (isDark) Color(0xFF26292E) else Color.White)
+      .border(1.dp, if (isDark) Color(0xFF383C44) else Color(0xFFCBD5E1), RoundedCornerShape(4.dp))
       .clickable(onClick = onClick)
       .padding(horizontal = 10.dp, vertical = 6.dp),
     contentAlignment = Alignment.Center
   ) {
     Text(
       text = label,
-      color = Color(0xFF1E293B),
+      color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B),
       fontSize = 12.sp,
       fontFamily = FontFamily.Monospace,
       fontWeight = FontWeight.Bold
@@ -2007,20 +2178,21 @@ fun SpckAccessoryKey(
 @Composable
 fun SpckSnippetPill(
   label: String,
+  isDark: Boolean = false,
   onClick: () -> Unit
 ) {
   Box(
     modifier = Modifier
       .clip(RoundedCornerShape(4.dp))
-      .background(Color(0xFFEDE9FE))
-      .border(1.dp, Color(0xFFC4B5FD), RoundedCornerShape(4.dp))
+      .background(if (isDark) Color(0xFF312E81) else Color(0xFFEDE9FE))
+      .border(1.dp, if (isDark) Color(0xFF4C1D95) else Color(0xFFC4B5FD), RoundedCornerShape(4.dp))
       .clickable(onClick = onClick)
       .padding(horizontal = 8.dp, vertical = 6.dp),
     contentAlignment = Alignment.Center
   ) {
     Text(
       text = label,
-      color = Color(0xFF6D28D9),
+      color = if (isDark) Color(0xFFC4B5FD) else Color(0xFF6D28D9),
       fontSize = 11.sp,
       fontFamily = FontFamily.Monospace,
       fontWeight = FontWeight.Bold

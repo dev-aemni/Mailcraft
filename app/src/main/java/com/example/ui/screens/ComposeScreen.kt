@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,6 +40,8 @@ import androidx.compose.material.icons.filled.CreditCard
 import androidx.compose.material.icons.filled.Drafts
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Gif
 import androidx.compose.material.icons.filled.HorizontalRule
@@ -72,6 +75,15 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
+import android.widget.Toast
+import androidx.compose.material.icons.filled.AutoAwesome
+import com.example.ui.theme.NeuCard
+import com.example.ui.theme.NeuButton
+import com.example.ui.theme.NeuInsetCard
+import com.example.ui.theme.NeuAccent
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -122,6 +134,7 @@ fun ComposeScreen(
 
   var showCcBcc by remember { mutableStateOf(false) }
   var activeGifBlockId by remember { mutableStateOf<String?>(null) }
+  var showAdvancedOptions by remember { mutableStateOf(false) }
 
   val attachments by viewModel.attachments.collectAsState()
 
@@ -147,6 +160,224 @@ fun ComposeScreen(
     )
   }
 
+  val isDark by viewModel.isAppDarkMode.collectAsState()
+  var showAiEmailSheet by remember { mutableStateOf(false) }
+  var showAiSubjectSheet by remember { mutableStateOf(false) }
+  var aiPromptText by remember { mutableStateOf("") }
+  var selectedTone by remember { mutableStateOf("Modern & Bold") }
+  var isGeneratingAi by remember { mutableStateOf(false) }
+  var aiSubjectSuggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+  var isSuggestingSubjects by remember { mutableStateOf(false) }
+
+  // 1. AI Email Creator Bottom Sheet
+  if (showAiEmailSheet) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+      onDismissRequest = { showAiEmailSheet = false },
+      sheetState = sheetState,
+      containerColor = MaterialTheme.colorScheme.surface
+    ) {
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 20.dp)
+          .padding(bottom = 32.dp)
+      ) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
+              modifier = Modifier
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF6366F1).copy(alpha = 0.15f)),
+              contentAlignment = Alignment.Center
+            ) {
+              Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF6366F1), modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Column {
+              Text("MailCraft AI Creator", fontWeight = FontWeight.Bold, fontSize = 17.sp)
+              Text("Generate structured headings, text, CTA & layout", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+          }
+          IconButton(onClick = { showAiEmailSheet = false }) {
+            Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+          }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Tone Pills
+        Text("Tone & Style", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(modifier = Modifier.height(6.dp))
+        Row(
+          modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+          horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+          listOf("Modern & Bold", "Casual & Warm", "Urgent & High-Energy", "Sleek Minimalist", "Professional B2B").forEach { tone ->
+            FilterChip(
+              selected = selectedTone == tone,
+              onClick = { selectedTone = tone },
+              label = { Text(tone, fontSize = 11.sp) }
+            )
+          }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Prompt Input
+        OutlinedTextField(
+          value = aiPromptText,
+          onValueChange = { aiPromptText = it },
+          label = { Text("What email would you like to create?") },
+          placeholder = { Text("e.g., Cyber Monday announcement with 30% discount code CYBER30, bold hero banner, and Shop Now button...") },
+          modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 100.dp)
+            .testTag("ai_email_prompt_input"),
+          shape = RoundedCornerShape(14.dp),
+          maxLines = 4
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        Button(
+          onClick = {
+            if (aiPromptText.isBlank()) {
+              Toast.makeText(context, "Please enter an email description", Toast.LENGTH_SHORT).show()
+              return@Button
+            }
+            isGeneratingAi = true
+            viewModel.generateEmailWithAi(
+              prompt = aiPromptText.trim(),
+              tone = selectedTone,
+              onSuccess = { generated ->
+                isGeneratingAi = false
+                viewModel.applyGeneratedEmail(generated)
+                showAiEmailSheet = false
+                Toast.makeText(context, "Generated \"${generated.subject}\"!", Toast.LENGTH_SHORT).show()
+              },
+              onError = { err ->
+                isGeneratingAi = false
+                Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+              }
+            )
+          },
+          enabled = !isGeneratingAi,
+          colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF6366F1)),
+          shape = RoundedCornerShape(12.dp),
+          modifier = Modifier
+            .fillMaxWidth()
+            .height(48.dp)
+            .testTag("ai_generate_email_submit_button")
+        ) {
+          if (isGeneratingAi) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("AI is crafting your email...", fontWeight = FontWeight.Bold)
+          } else {
+            Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Generate Complete Email", fontWeight = FontWeight.Bold)
+          }
+        }
+      }
+    }
+  }
+
+  // 2. AI Subject Line Suggestions Bottom Sheet
+  if (showAiSubjectSheet) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+      onDismissRequest = { showAiSubjectSheet = false },
+      sheetState = sheetState,
+      containerColor = MaterialTheme.colorScheme.surface
+    ) {
+      Column(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 20.dp)
+          .padding(bottom = 32.dp)
+      ) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF6366F1), modifier = Modifier.size(20.dp))
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("AI Subject Line Suggestions", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+          }
+          IconButton(onClick = { showAiSubjectSheet = false }) {
+            Icon(Icons.Default.Close, contentDescription = "Close", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+          }
+        }
+
+        Text(
+          "Click any subject line to instantly apply it to your email.",
+          fontSize = 12.sp,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.padding(bottom = 14.dp)
+        )
+
+        if (isSuggestingSubjects) {
+          Box(
+            modifier = Modifier
+              .fillMaxWidth()
+              .height(140.dp),
+            contentAlignment = Alignment.Center
+          ) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+              CircularProgressIndicator(modifier = Modifier.size(28.dp), color = Color(0xFF6366F1))
+              Spacer(modifier = Modifier.height(10.dp))
+              Text("Crafting high open-rate subject lines...", fontSize = 12.sp, color = Color(0xFF6366F1))
+            }
+          }
+        } else {
+          Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            aiSubjectSuggestions.forEach { subj ->
+              Card(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .clickable {
+                    viewModel.setSubject(subj)
+                    showAiSubjectSheet = false
+                    Toast.makeText(context, "Subject updated!", Toast.LENGTH_SHORT).show()
+                  }
+                  .testTag("suggested_subject_item"),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+              ) {
+                Row(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(14.dp),
+                  verticalAlignment = Alignment.CenterVertically,
+                  horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                  Text(
+                    text = subj,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.weight(1f)
+                  )
+                  Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF6366F1), modifier = Modifier.size(18.dp))
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
 
   LazyColumn(
     modifier = Modifier.fillMaxSize(),
@@ -155,17 +386,14 @@ fun ComposeScreen(
   ) {
     // 1. Sender Banner
     item {
-      Card(
+      NeuCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-          containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-        )
+        cornerRadius = 24.dp,
+        isDark = isDark,
+        contentPadding = PaddingValues(14.dp)
       ) {
         Row(
-          modifier = Modifier
-            .fillMaxWidth()
-            .padding(14.dp),
+          modifier = Modifier.fillMaxWidth(),
           verticalAlignment = Alignment.CenterVertically,
           horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -174,7 +402,7 @@ fun ComposeScreen(
               modifier = Modifier
                 .size(38.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primaryContainer),
+                .background(if (isDark) Color(0xFF282B30) else MaterialTheme.colorScheme.primaryContainer),
               contentAlignment = Alignment.Center
             ) {
               val preset = sender.avatarPreset
@@ -192,12 +420,12 @@ fun ComposeScreen(
                   text = letter.ifBlank { "U" },
                   fontWeight = FontWeight.Black,
                   fontSize = 15.sp,
-                  color = MaterialTheme.colorScheme.primary
+                  color = if (isDark) Color(0xFFA5B4FC) else MaterialTheme.colorScheme.primary
                 )
               } else if (preset == "avatar_rocket") {
-                Icon(Icons.Default.RocketLaunch, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.RocketLaunch, contentDescription = null, tint = if (isDark) Color(0xFFA5B4FC) else MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
               } else if (preset == "avatar_code") {
-                Icon(Icons.Default.Code, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                Icon(Icons.Default.Code, contentDescription = null, tint = if (isDark) Color(0xFFA5B4FC) else MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
               } else if (preset == "avatar_heart") {
                 Text("❤️", fontSize = 16.sp)
               } else if (preset == "avatar_sparkles") {
@@ -211,12 +439,13 @@ fun ComposeScreen(
               Text(
                 text = "From: ${sender.displayName.ifBlank { "Sender Account" }}",
                 fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
               )
               Text(
                 text = sender.email.ifBlank { "No email configured (tap to set)" },
                 style = MaterialTheme.typography.bodySmall,
-                color = if (sender.email.isBlank()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (sender.email.isBlank()) MaterialTheme.colorScheme.error else (if (isDark) Color(0xFF94A3B8) else MaterialTheme.colorScheme.onSurfaceVariant)
               )
             }
           }
@@ -227,28 +456,28 @@ fun ComposeScreen(
             Box(
               modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .background(if (hasPassword) Color(0xFFDCFCE7) else Color(0xFFFEF3C7))
+                .background(if (hasPassword) (if (isDark) Color(0xFF14532D) else Color(0xFFDCFCE7)) else (if (isDark) Color(0xFF78350F) else Color(0xFFFEF3C7)))
                 .padding(horizontal = 8.dp, vertical = 4.dp)
             ) {
               Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                   if (hasPassword) Icons.Default.CheckCircle else Icons.Default.Key,
                   contentDescription = null,
-                  tint = if (hasPassword) Color(0xFF16A34A) else Color(0xFFD97706),
+                  tint = if (hasPassword) (if (isDark) Color(0xFF4ADE80) else Color(0xFF16A34A)) else (if (isDark) Color(0xFFFCD34D) else Color(0xFFD97706)),
                   modifier = Modifier.size(13.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
-                  text = if (hasPassword) "App Password Ready" else "Need Password",
+                  text = if (hasPassword) "Password Ready" else "Need Password",
                   fontSize = 11.sp,
                   fontWeight = FontWeight.SemiBold,
-                  color = if (hasPassword) Color(0xFF15803D) else Color(0xFFB45309)
+                  color = if (hasPassword) (if (isDark) Color(0xFFBBF7D0) else Color(0xFF15803D)) else (if (isDark) Color(0xFFFDE68A) else Color(0xFFB45309))
                 )
               }
             }
             Spacer(modifier = Modifier.width(6.dp))
             IconButton(onClick = onOpenSettings, modifier = Modifier.size(32.dp)) {
-              Icon(Icons.Default.Edit, contentDescription = "Edit Sender Account", modifier = Modifier.size(18.dp))
+              Icon(Icons.Default.Edit, contentDescription = "Edit Sender Account", modifier = Modifier.size(18.dp), tint = if (isDark) Color(0xFFE2E8F0) else Color(0xFF475569))
             }
           }
         }
@@ -257,13 +486,13 @@ fun ComposeScreen(
 
     // 2. Recipient & Subject Card
     item {
-      Card(
+      NeuCard(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        cornerRadius = 24.dp,
+        isDark = isDark,
+        contentPadding = PaddingValues(16.dp)
       ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column {
           // Recipient Field ("that person email")
           OutlinedTextField(
             value = recipient,
@@ -350,6 +579,32 @@ fun ComposeScreen(
             leadingIcon = {
               Icon(Icons.Default.Title, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
             },
+            trailingIcon = {
+              IconButton(
+                onClick = {
+                  isSuggestingSubjects = true
+                  showAiSubjectSheet = true
+                  viewModel.suggestSubjectLinesWithAi(
+                    onSuccess = { list ->
+                      aiSubjectSuggestions = list
+                      isSuggestingSubjects = false
+                    },
+                    onError = { err ->
+                      isSuggestingSubjects = false
+                      Toast.makeText(context, err, Toast.LENGTH_SHORT).show()
+                    }
+                  )
+                },
+                modifier = Modifier.testTag("ai_suggest_subject_button")
+              ) {
+                Icon(
+                  Icons.Default.AutoAwesome,
+                  contentDescription = "Suggest Subject with AI",
+                  tint = Color(0xFF6366F1),
+                  modifier = Modifier.size(20.dp)
+                )
+              }
+            },
             modifier = Modifier.fillMaxWidth().testTag("email_subject_input"),
             shape = RoundedCornerShape(12.dp)
           )
@@ -357,230 +612,380 @@ fun ComposeScreen(
       }
     }
 
-    // 2.5 Attachments Card (PDFs, Media & Documents)
+    // ✨ MailCraft AI Email Creator Card
     item {
-      Card(
+      NeuCard(
         modifier = Modifier
           .fillMaxWidth()
-          .testTag("attachments_card"),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+          .clickable { showAiEmailSheet = true }
+          .testTag("open_ai_email_creator_card"),
+        cornerRadius = 22.dp,
+        isDark = isDark,
+        contentPadding = PaddingValues(14.dp)
       ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-          Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-              Box(
-                modifier = Modifier
-                  .size(36.dp)
-                  .clip(CircleShape)
-                  .background(MaterialTheme.colorScheme.primaryContainer),
-                contentAlignment = Alignment.Center
-              ) {
-                Icon(
-                  Icons.Default.AttachFile,
-                  contentDescription = null,
-                  tint = MaterialTheme.colorScheme.primary,
-                  modifier = Modifier.size(18.dp)
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+            Box(
+              modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF6366F1)),
+              contentAlignment = Alignment.Center
+            ) {
+              Icon(
+                Icons.Default.AutoAwesome,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+              )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                  text = "Create Email with AI",
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 14.sp,
+                  color = if (isDark) Color(0xFFE0E7FF) else Color(0xFF1E1B4B)
                 )
-              }
-              Spacer(modifier = Modifier.width(10.dp))
-              Column {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Spacer(modifier = Modifier.width(6.dp))
+                Box(
+                  modifier = Modifier
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xFF6366F1))
+                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                ) {
                   Text(
-                    text = "Attachments",
-                    style = MaterialTheme.typography.titleSmall,
+                    text = "SMART",
+                    color = Color.White,
+                    fontSize = 9.sp,
                     fontWeight = FontWeight.Bold
                   )
-                  if (attachments.isNotEmpty()) {
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Box(
-                      modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
-                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                    ) {
-                      Text(
-                        text = "${attachments.size}",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary
-                      )
-                    }
-                  }
                 }
-                Text(
-                  text = "PDF documents, images & files",
-                  style = MaterialTheme.typography.bodySmall,
-                  color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
               }
-            }
-
-            // Quick file picker buttons
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-              Button(
-                onClick = {
-                  documentPickerLauncher.launch(
-                    arrayOf(
-                      "application/pdf",
-                      "image/*",
-                      "text/plain",
-                      "application/msword",
-                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                      "*/*"
-                    )
-                  )
-                },
-                modifier = Modifier
-                  .height(36.dp)
-                  .testTag("add_attachment_button"),
-                shape = RoundedCornerShape(10.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp)
-              ) {
-                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(15.dp))
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Add File", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
-              }
+              Text(
+                text = "Describe topic: AI writes subject, catchy text & layout",
+                fontSize = 11.sp,
+                color = if (isDark) Color(0xFFA5B4FC) else Color(0xFF4F46E5)
+              )
             }
           }
+          Icon(
+            Icons.Default.ChevronRight,
+            contentDescription = null,
+            tint = Color(0xFF6366F1),
+            modifier = Modifier.size(20.dp)
+          )
+        }
+      }
+    }
 
-          // Total Size Tracker & Warnings
-          val totalBytes = attachments.sumOf { it.sizeBytes }
-          val totalMb = totalBytes / (1024.0 * 1024.0)
-          val isExceedingGmailLimit = totalBytes > 25 * 1024 * 1024
-
-          if (attachments.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(
+    // 3. Advance Options Expandable Box (Keeps UI clean & uncluttered)
+    item {
+      NeuCard(
+        modifier = Modifier
+          .fillMaxWidth()
+          .clickable { showAdvancedOptions = !showAdvancedOptions }
+          .testTag("advance_options_toggle"),
+        cornerRadius = 22.dp,
+        isDark = isDark,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 13.dp)
+      ) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(
               modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(
-                  if (isExceedingGmailLimit) Color(0xFFFEE2E2) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                .size(34.dp)
+                .clip(CircleShape)
+                .background(if (isDark) Color(0xFF282B30) else Color(0xFFE2E8F0)),
+              contentAlignment = Alignment.Center
+            ) {
+              Icon(
+                if (showAdvancedOptions) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                contentDescription = null,
+                tint = if (isDark) Color(0xFFE2E8F0) else Color(0xFF475569),
+                modifier = Modifier.size(20.dp)
+              )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column {
+              Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                  text = if (showAdvancedOptions) "Advance Options ↑" else "Advance Options ↓",
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 14.sp,
+                  color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
                 )
-                .padding(horizontal = 10.dp, vertical = 6.dp),
+                if (attachments.isNotEmpty()) {
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Box(
+                    modifier = Modifier
+                      .clip(RoundedCornerShape(6.dp))
+                      .background(Color(0xFF2563EB).copy(alpha = 0.15f))
+                      .padding(horizontal = 6.dp, vertical = 2.dp)
+                  ) {
+                    Text(
+                      text = "${attachments.size} attached",
+                      fontSize = 10.sp,
+                      fontWeight = FontWeight.Bold,
+                      color = Color(0xFF2563EB)
+                    )
+                  }
+                }
+              }
+              Text(
+                text = "Attachments (${attachments.size}), HTML Studio code editor",
+                fontSize = 11.sp,
+                color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+              )
+            }
+          }
+          Icon(
+            if (showAdvancedOptions) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+            contentDescription = null,
+            tint = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+          )
+        }
+      }
+    }
+
+    // Expanded Advance Features
+    if (showAdvancedOptions) {
+      // Attachments Card (PDFs, Media & Documents)
+      item {
+        NeuCard(
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("attachments_card"),
+          cornerRadius = 22.dp,
+          isDark = isDark,
+          contentPadding = PaddingValues(16.dp)
+        ) {
+          Column {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
               horizontalArrangement = Arrangement.SpaceBetween,
               verticalAlignment = Alignment.CenterVertically
             ) {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isExceedingGmailLimit) {
-                  Icon(
-                    Icons.Default.Warning,
-                    contentDescription = null,
-                    tint = Color(0xFFDC2626),
-                    modifier = Modifier.size(14.dp)
-                  )
-                  Spacer(modifier = Modifier.width(4.dp))
-                }
-                Text(
-                  text = if (isExceedingGmailLimit) {
-                    "Total ${String.format(java.util.Locale.US, "%.1f", totalMb)} MB • Exceeds 25 MB Gmail SMTP limit"
-                  } else {
-                    "Total payload: ${String.format(java.util.Locale.US, "%.2f", totalMb)} MB / 25 MB max"
-                  },
-                  fontSize = 11.sp,
-                  fontWeight = FontWeight.SemiBold,
-                  color = if (isExceedingGmailLimit) Color(0xFFDC2626) else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-              }
-
-              TextButton(
-                onClick = { viewModel.clearAttachments() },
-                modifier = Modifier.height(28.dp),
-                contentPadding = PaddingValues(horizontal = 8.dp)
-              ) {
-                Text("Clear All", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
-              }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Attachment item chips
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-              attachments.forEach { att ->
-                Surface(
-                  shape = RoundedCornerShape(10.dp),
-                  color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                  border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
-                  ),
+              Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                Box(
                   modifier = Modifier
-                    .fillMaxWidth()
-                    .testTag("attachment_item_${att.id}")
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(if (isDark) Color(0xFF282B30) else MaterialTheme.colorScheme.primaryContainer),
+                  contentAlignment = Alignment.Center
                 ) {
-                  Row(
-                    modifier = Modifier
-                      .fillMaxWidth()
-                      .padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
-                  ) {
-                    Row(
-                      verticalAlignment = Alignment.CenterVertically,
-                      modifier = Modifier.weight(1f)
-                    ) {
+                  Icon(
+                    Icons.Default.AttachFile,
+                    contentDescription = null,
+                    tint = if (isDark) Color(0xFFA5B4FC) else MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                  )
+                }
+                Spacer(modifier = Modifier.width(10.dp))
+                Column {
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                      text = "Attachments",
+                      style = MaterialTheme.typography.titleSmall,
+                      fontWeight = FontWeight.Bold,
+                      color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B)
+                    )
+                    if (attachments.isNotEmpty()) {
+                      Spacer(modifier = Modifier.width(6.dp))
                       Box(
                         modifier = Modifier
-                          .size(34.dp)
-                          .clip(RoundedCornerShape(8.dp))
-                          .background(
-                            when {
-                              att.isPdf -> Color(0xFFFEE2E2)
-                              att.isImage -> Color(0xFFE0E7FF)
-                              else -> Color(0xFFF1F5F9)
-                            }
-                          ),
-                        contentAlignment = Alignment.Center
+                          .clip(RoundedCornerShape(6.dp))
+                          .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.15f))
+                          .padding(horizontal = 6.dp, vertical = 2.dp)
                       ) {
-                        Icon(
-                          imageVector = when {
-                            att.isPdf -> Icons.Default.PictureAsPdf
-                            att.isImage -> Icons.Default.Image
-                            else -> Icons.Default.InsertDriveFile
-                          },
-                          contentDescription = null,
-                          tint = when {
-                            att.isPdf -> Color(0xFFDC2626)
-                            att.isImage -> Color(0xFF4F46E5)
-                            else -> Color(0xFF64748B)
-                          },
-                          modifier = Modifier.size(18.dp)
-                        )
-                      }
-                      Spacer(modifier = Modifier.width(10.dp))
-                      Column {
                         Text(
-                          text = att.fileName,
-                          fontSize = 13.sp,
-                          fontWeight = FontWeight.SemiBold,
-                          maxLines = 1
-                        )
-                        Text(
-                          text = "${att.formattedSize} • ${att.mimeType.substringAfterLast('/')}",
+                          text = "${attachments.size}",
                           fontSize = 11.sp,
-                          color = MaterialTheme.colorScheme.onSurfaceVariant
+                          fontWeight = FontWeight.Bold,
+                          color = MaterialTheme.colorScheme.primary
                         )
                       }
                     }
+                  }
+                  Text(
+                    text = "PDF documents, images & files",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (isDark) Color(0xFF94A3B8) else MaterialTheme.colorScheme.onSurfaceVariant
+                  )
+                }
+              }
 
-                    IconButton(
-                      onClick = { viewModel.removeAttachment(att.id) },
-                      modifier = Modifier
-                        .size(36.dp)
-                        .testTag("remove_attachment_${att.id}")
-                    ) {
-                      Icon(
-                        Icons.Default.Close,
-                        contentDescription = "Remove attachment",
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+              // Quick file picker buttons
+              Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Button(
+                  onClick = {
+                    documentPickerLauncher.launch(
+                      arrayOf(
+                        "application/pdf",
+                        "image/*",
+                        "text/plain",
+                        "application/msword",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                        "*/*"
                       )
+                    )
+                  },
+                  modifier = Modifier
+                    .height(36.dp)
+                    .testTag("add_attachment_button"),
+                  shape = RoundedCornerShape(10.dp),
+                  contentPadding = PaddingValues(horizontal = 12.dp)
+                ) {
+                  Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(15.dp))
+                  Spacer(modifier = Modifier.width(4.dp))
+                  Text("Add File", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                }
+              }
+            }
+
+            // Total Size Tracker & Warnings
+            val totalBytes = attachments.sumOf { it.sizeBytes }
+            val totalMb = totalBytes / (1024.0 * 1024.0)
+            val isExceedingGmailLimit = totalBytes > 25 * 1024 * 1024
+
+            if (attachments.isNotEmpty()) {
+              Spacer(modifier = Modifier.height(12.dp))
+              Row(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .clip(RoundedCornerShape(8.dp))
+                  .background(
+                    if (isExceedingGmailLimit) Color(0xFFFEE2E2) else (if (isDark) Color(0xFF282B30) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
+                  )
+                  .padding(horizontal = 10.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+              ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  if (isExceedingGmailLimit) {
+                    Icon(
+                      Icons.Default.Warning,
+                      contentDescription = null,
+                      tint = Color(0xFFDC2626),
+                      modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                  }
+                  Text(
+                    text = if (isExceedingGmailLimit) {
+                      "Total ${String.format(java.util.Locale.US, "%.1f", totalMb)} MB • Exceeds 25 MB Gmail SMTP limit"
+                    } else {
+                      "Total payload: ${String.format(java.util.Locale.US, "%.2f", totalMb)} MB / 25 MB max"
+                    },
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isExceedingGmailLimit) Color(0xFFDC2626) else (if (isDark) Color(0xFFCBD5E1) else MaterialTheme.colorScheme.onSurfaceVariant)
+                  )
+                }
+
+                TextButton(
+                  onClick = { viewModel.clearAttachments() },
+                  modifier = Modifier.height(28.dp),
+                  contentPadding = PaddingValues(horizontal = 8.dp)
+                ) {
+                  Text("Clear All", fontSize = 11.sp, color = MaterialTheme.colorScheme.error)
+                }
+              }
+
+              Spacer(modifier = Modifier.height(10.dp))
+
+              // Attachment item chips
+              Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                attachments.forEach { att ->
+                  Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = if (isDark) Color(0xFF222428) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                    border = androidx.compose.foundation.BorderStroke(
+                      1.dp,
+                      if (isDark) Color(0xFF333740) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)
+                    ),
+                    modifier = Modifier
+                      .fillMaxWidth()
+                      .testTag("attachment_item_${att.id}")
+                  ) {
+                    Row(
+                      modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                      verticalAlignment = Alignment.CenterVertically,
+                      horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                      Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                      ) {
+                        Box(
+                          modifier = Modifier
+                            .size(34.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(
+                              when {
+                                att.isPdf -> Color(0xFFFEE2E2)
+                                att.isImage -> Color(0xFFE0E7FF)
+                                else -> (if (isDark) Color(0xFF2E323A) else Color(0xFFF1F5F9))
+                              }
+                            ),
+                          contentAlignment = Alignment.Center
+                        ) {
+                          Icon(
+                            imageVector = when {
+                              att.isPdf -> Icons.Default.PictureAsPdf
+                              att.isImage -> Icons.Default.Image
+                              else -> Icons.Default.InsertDriveFile
+                            },
+                            contentDescription = null,
+                            tint = when {
+                              att.isPdf -> Color(0xFFDC2626)
+                              att.isImage -> Color(0xFF4F46E5)
+                              else -> (if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B))
+                            },
+                            modifier = Modifier.size(18.dp)
+                          )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column {
+                          Text(
+                            text = att.fileName,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E293B),
+                            maxLines = 1
+                          )
+                          Text(
+                            text = "${att.formattedSize} • ${att.mimeType.substringAfterLast('/')}",
+                            fontSize = 11.sp,
+                            color = if (isDark) Color(0xFF94A3B8) else MaterialTheme.colorScheme.onSurfaceVariant
+                          )
+                        }
+                      }
+
+                      IconButton(
+                        onClick = { viewModel.removeAttachment(att.id) },
+                        modifier = Modifier
+                          .size(36.dp)
+                          .testTag("remove_attachment_${att.id}")
+                      ) {
+                        Icon(
+                          Icons.Default.Close,
+                          contentDescription = "Remove attachment",
+                          modifier = Modifier.size(16.dp),
+                          tint = if (isDark) Color(0xFF94A3B8) else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                      }
                     }
                   }
                 }
@@ -589,81 +994,80 @@ fun ComposeScreen(
           }
         }
       }
-    }
 
-    // HTML Workstation Quick Switch Card
-    item {
-      Card(
-        modifier = Modifier
-          .fillMaxWidth()
-          .clickable {
-            viewModel.enableCustomHtmlMode()
-            viewModel.setActiveTab(AppTab.HTML_WORKSTATION)
-          }
-          .testTag("switch_to_html_workstation_card"),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-      ) {
-        Row(
+      // HTML Workstation Quick Switch Card
+      item {
+        NeuCard(
           modifier = Modifier
             .fillMaxWidth()
-            .padding(14.dp),
-          verticalAlignment = Alignment.CenterVertically,
-          horizontalArrangement = Arrangement.SpaceBetween
+            .clickable {
+              viewModel.enableCustomHtmlMode()
+              viewModel.setActiveTab(AppTab.HTML_WORKSTATION)
+            }
+            .testTag("switch_to_html_workstation_card"),
+          cornerRadius = 22.dp,
+          isDark = isDark,
+          contentPadding = PaddingValues(14.dp)
         ) {
-          Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-            Box(
-              modifier = Modifier
-                .size(38.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF7C3AED).copy(alpha = 0.15f)),
-              contentAlignment = Alignment.Center
-            ) {
-              Icon(
-                Icons.Default.Terminal,
-                contentDescription = null,
-                tint = Color(0xFF7C3AED),
-                modifier = Modifier.size(20.dp)
-              )
-            }
-            Spacer(modifier = Modifier.width(12.dp))
-            Column {
-              Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                  text = "Switch to HTML Studio",
-                  color = Color(0xFF1E1B4B),
-                  fontWeight = FontWeight.Bold,
-                  fontSize = 14.sp
+          Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+          ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+              Box(
+                modifier = Modifier
+                  .size(38.dp)
+                  .clip(RoundedCornerShape(8.dp))
+                  .background(Color(0xFF7C3AED).copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+              ) {
+                Icon(
+                  Icons.Default.Terminal,
+                  contentDescription = null,
+                  tint = Color(0xFF7C3AED),
+                  modifier = Modifier.size(20.dp)
                 )
-                Spacer(modifier = Modifier.width(6.dp))
-                Box(
-                  modifier = Modifier
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xFF7C3AED).copy(alpha = 0.15f))
-                    .padding(horizontal = 5.dp, vertical = 1.dp)
-                ) {
-                  Text(
-                    text = "CODE MODE",
-                    color = Color(0xFF7C3AED),
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
-                  )
-                }
               }
-              Text(
-                text = "Live syntax highlighting, snippets, line numbers & raw control",
-                color = Color(0xFF5B21B6),
-                fontSize = 11.sp
-              )
+              Spacer(modifier = Modifier.width(12.dp))
+              Column {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                  Text(
+                    text = "Switch to HTML Studio",
+                    color = if (isDark) Color(0xFFDDD6FE) else Color(0xFF1E1B4B),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                  )
+                  Spacer(modifier = Modifier.width(6.dp))
+                  Box(
+                    modifier = Modifier
+                      .clip(RoundedCornerShape(4.dp))
+                      .background(Color(0xFF7C3AED).copy(alpha = 0.15f))
+                      .padding(horizontal = 5.dp, vertical = 1.dp)
+                  ) {
+                    Text(
+                      text = "CODE MODE",
+                      color = Color(0xFF7C3AED),
+                      fontSize = 9.sp,
+                      fontWeight = FontWeight.Bold,
+                      fontFamily = FontFamily.Monospace
+                    )
+                  }
+                }
+                Text(
+                  text = "Live syntax highlighting, snippets, line numbers & raw control",
+                  color = if (isDark) Color(0xFFA78BFA) else Color(0xFF5B21B6),
+                  fontSize = 11.sp
+                )
+              }
             }
+            Icon(
+              Icons.Default.ChevronRight,
+              contentDescription = null,
+              tint = Color(0xFF7C3AED),
+              modifier = Modifier.size(20.dp)
+            )
           }
-          Icon(
-            Icons.Default.ChevronRight,
-            contentDescription = null,
-            tint = Color(0xFF7C3AED),
-            modifier = Modifier.size(20.dp)
-          )
         }
       }
     }

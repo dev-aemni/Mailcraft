@@ -67,8 +67,11 @@ class SettingsManager(context: Context) {
     prefs.edit().putString("recent_recipients", trimmed).apply()
   }
 
-  fun isDarkMode(): Boolean {
-    return prefs.getBoolean("app_dark_mode", false)
+  fun isDarkMode(defaultSystemDark: Boolean = false): Boolean {
+    if (!prefs.contains("app_dark_mode")) {
+      return defaultSystemDark
+    }
+    return prefs.getBoolean("app_dark_mode", defaultSystemDark)
   }
 
   fun saveDarkMode(isDark: Boolean) {

@@ -15,15 +15,15 @@ import java.util.concurrent.TimeUnit
 
 class MailCraftAiService(
   private val client: OkHttpClient = OkHttpClient.Builder()
-    .connectTimeout(45, TimeUnit.SECONDS)
-    .readTimeout(60, TimeUnit.SECONDS)
-    .writeTimeout(45, TimeUnit.SECONDS)
+    .connectTimeout(35, TimeUnit.SECONDS)
+    .readTimeout(50, TimeUnit.SECONDS)
+    .writeTimeout(35, TimeUnit.SECONDS)
     .build()
 ) {
   companion object {
     private const val TAG = "MailCraftAiService"
     private const val API_URL = "https://openrouter.ai/api/v1/chat/completions"
-    const val DEFAULT_MODEL = "anthropic/claude-3.5-sonnet"
+    const val DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
 
     private const val SUPPORT_SYSTEM_PROMPT = """
 You are MailCraft AI, the intelligent, built-in support assistant and email design expert for MailCraft Studio.
@@ -44,76 +44,114 @@ Communication style:
 """
   }
 
-  suspend fun chat(
-    conversation: List<AiChatMessage>,
-    model: String = DEFAULT_MODEL,
-    systemPrompt: String = SUPPORT_SYSTEM_PROMPT
+  /**
+   * Executes a chat completion request with automatic, silent fallback across free models.
+   * If a selected model returns a 404, rate limit, or outage, the request immediately
+   * and invisibly shifts to the next candidate in FREE_MODELS_FALLBACK_LIST.
+   */
+  private suspend fun executeChatWithFallback(
+    messages: JSONArray,
+    preferredModel: String,
+    temperature: Double = 0.7
   ): Result<String> = withContext(Dispatchers.IO) {
     val apiKey = AiKeyProvider.getApiKey()
     if (apiKey.isBlank()) {
       return@withContext Result.failure(
-        IllegalStateException("API key not configured. Please ensure 'openrouter_api' is set in the Secrets panel.")
+        IllegalStateException("AI API key is missing. Please configure 'openrouter_api' in AI Studio Secrets.")
       )
     }
 
-    try {
-      val messagesArray = JSONArray()
-
-      // System message
-      if (systemPrompt.isNotBlank()) {
-        val sysObj = JSONObject()
-        sysObj.put("role", "system")
-        sysObj.put("content", systemPrompt)
-        messagesArray.put(sysObj)
+    // Prepare sequence of candidate models starting with a verified free model
+    val candidates = buildList {
+      val validPreferred = if (preferredModel.endsWith(":free") && !preferredModel.contains("claude", ignoreCase = true)) {
+        preferredModel
+      } else {
+        DEFAULT_MODEL
       }
-
-      // Add conversation history
-      conversation.forEach { msg ->
-        val mObj = JSONObject()
-        mObj.put("role", msg.role)
-        mObj.put("content", msg.content)
-        messagesArray.put(mObj)
+      add(validPreferred)
+      FREE_MODELS_FALLBACK_LIST.forEach { fallback ->
+        if (!contains(fallback)) add(fallback)
       }
-
-      val payload = JSONObject()
-      payload.put("model", model)
-      payload.put("messages", messagesArray)
-      payload.put("temperature", 0.7)
-
-      val mediaType = "application/json; charset=utf-8".toMediaType()
-      val body = payload.toString().toRequestBody(mediaType)
-
-      val request = Request.Builder()
-        .url(API_URL)
-        .addHeader("Authorization", "Bearer $apiKey")
-        .addHeader("Content-Type", "application/json")
-        .addHeader("HTTP-Referer", "https://mailcraft.studio")
-        .addHeader("X-Title", "MailCraft")
-        .post(body)
-        .build()
-
-      val response = client.newCall(request).execute()
-      val responseBody = response.body?.string().orEmpty()
-
-      if (!response.isSuccessful) {
-        val errMessage = parseErrorMessage(responseBody, response.code)
-        Log.e(TAG, "AI request failed ($errMessage)")
-        return@withContext Result.failure(Exception(errMessage))
-      }
-
-      val json = JSONObject(responseBody)
-      val choices = json.optJSONArray("choices")
-      if (choices == null || choices.length() == 0) {
-        return@withContext Result.failure(Exception("AI did not return any response choices."))
-      }
-
-      val choice = choices.getJSONObject(0)
-      val content = choice.optJSONObject("message")?.optString("content").orEmpty()
-      Result.success(content)
-    } catch (e: Exception) {
-      Log.e(TAG, "Error in AI chat", e)
-      Result.failure(e)
     }
+
+    var lastErrorMessage = "AI service is currently busy. Please try again shortly."
+
+    for (model in candidates) {
+      try {
+        val payload = JSONObject().apply {
+          put("model", model)
+          put("messages", messages)
+          put("temperature", temperature)
+        }
+
+        val mediaType = "application/json; charset=utf-8".toMediaType()
+        val body = payload.toString().toRequestBody(mediaType)
+
+        val request = Request.Builder()
+          .url(API_URL)
+          .addHeader("Authorization", "Bearer $apiKey")
+          .addHeader("Content-Type", "application/json")
+          .addHeader("HTTP-Referer", "https://mailcraft.studio")
+          .addHeader("X-Title", "MailCraft")
+          .post(body)
+          .build()
+
+        val response = client.newCall(request).execute()
+        val responseBody = response.body?.string().orEmpty()
+
+        if (response.isSuccessful) {
+          val json = JSONObject(responseBody)
+          val choices = json.optJSONArray("choices")
+          if (choices != null && choices.length() > 0) {
+            val content = choices.getJSONObject(0).optJSONObject("message")?.optString("content").orEmpty()
+            if (content.isNotBlank()) {
+              Log.d(TAG, "AI answered successfully using free model: $model")
+              return@withContext Result.success(content)
+            }
+          }
+        } else {
+          // Model error (e.g. 404 model not found, 402, 429 rate limit, 503)
+          // Silently proceed to next free candidate without showing error to user!
+          Log.w(TAG, "Model $model returned HTTP ${response.code}. Silently switching to next engine...")
+          lastErrorMessage = sanitizeError(responseBody, response.code)
+        }
+      } catch (e: Exception) {
+        Log.w(TAG, "Network exception with model $model: ${e.message}. Silently trying next engine...")
+        lastErrorMessage = "Network connection timed out. Please check your internet connection."
+      }
+    }
+
+    Result.failure(Exception(lastErrorMessage))
+  }
+
+  suspend fun chat(
+    conversation: List<AiChatMessage>,
+    model: String = DEFAULT_MODEL,
+    systemPrompt: String = SUPPORT_SYSTEM_PROMPT
+  ): Result<String> {
+    val messagesArray = JSONArray()
+
+    if (systemPrompt.isNotBlank()) {
+      val sysObj = JSONObject().apply {
+        put("role", "system")
+        put("content", systemPrompt)
+      }
+      messagesArray.put(sysObj)
+    }
+
+    conversation.forEach { msg ->
+      val mObj = JSONObject().apply {
+        put("role", msg.role)
+        put("content", msg.content)
+      }
+      messagesArray.put(mObj)
+    }
+
+    return executeChatWithFallback(
+      messages = messagesArray,
+      preferredModel = model,
+      temperature = 0.7
+    )
   }
 
   suspend fun generateVisualEmail(
@@ -143,58 +181,60 @@ The JSON must follow this exact schema:
       "content": "Paragraph body text...",
       "align": "left",
       "color": "#334155",
-      "isQuote": false,
       "fontSizeSp": 16
     },
     {
-      "type": "EMBED_CARD",
-      "badge": "SPECIAL OFFER",
-      "badgeColor": "#4F46E5",
-      "title": "Highlight Title",
-      "body": "Card description...",
-      "linkText": "Explore More →",
-      "linkUrl": "https://example.com"
-    },
-    {
       "type": "BUTTON",
-      "label": "Click Here",
+      "label": "Primary Call To Action",
       "url": "https://example.com",
       "backgroundColor": "#4F46E5",
       "textColor": "#FFFFFF",
-      "align": "center",
-      "cornerRadiusDp": 8
+      "cornerRadiusDp": 8,
+      "align": "center"
     },
     {
       "type": "DIVIDER"
     },
     {
       "type": "FOOTER",
-      "signOff": "Warm regards,\nThe Team",
+      "signOff": "Best regards,\nThe Team",
       "companyName": "MailCraft Studio",
-      "disclaimer": "You received this email because you subscribed to updates."
+      "disclaimer": "You received this because of your account."
     }
   ]
 }
-Supported block types: HEADER, TEXT, EMBED_CARD, BUTTON, DIVIDER, FOOTER.
+Supported types: HEADER, TEXT, BUTTON, EMBED_CARD, DIVIDER, FOOTER.
 """
-    val userMsg = "Generate an email about: $prompt\nTone: $tone\nReturn JSON only."
+    val userMsg = "Generate an email for: $prompt\nTone: $tone\nReturn pure raw JSON only."
 
-    val res = chat(
-      conversation = listOf(AiChatMessage(role = "user", content = userMsg)),
-      model = model,
-      systemPrompt = systemPrompt
+    val messagesArray = JSONArray().apply {
+      put(JSONObject().apply {
+        put("role", "system")
+        put("content", systemPrompt)
+      })
+      put(JSONObject().apply {
+        put("role", "user")
+        put("content", userMsg)
+      })
+    }
+
+    val res = executeChatWithFallback(
+      messages = messagesArray,
+      preferredModel = model,
+      temperature = 0.6
     )
 
     res.fold(
       onSuccess = { rawContent ->
         try {
           val cleanJson = cleanJsonString(rawContent)
-          val root = JSONObject(cleanJson)
-          val subject = root.optString("subject", "Exciting Update from MailCraft")
-          val preview = root.optString("previewSnippet", "")
-          val blocksArray = root.optJSONArray("blocks") ?: JSONArray()
+          val json = JSONObject(cleanJson)
+          val subject = json.optString("subject", "New Email")
+          val preview = json.optString("previewSnippet", "")
 
+          val blocksArray = json.optJSONArray("blocks") ?: JSONArray()
           val parsedBlocks = mutableListOf<EmailBlock>()
+
           for (i in 0 until blocksArray.length()) {
             val b = blocksArray.getJSONObject(i)
             val type = b.optString("type", "").uppercase()
@@ -294,10 +334,21 @@ Requirements:
 """
     val userMsg = "Instruction: $instruction\n\nOriginal HTML:\n```html\n$rawHtml\n```"
 
-    val res = chat(
-      conversation = listOf(AiChatMessage(role = "user", content = userMsg)),
-      model = model,
-      systemPrompt = sysPrompt
+    val messagesArray = JSONArray().apply {
+      put(JSONObject().apply {
+        put("role", "system")
+        put("content", sysPrompt)
+      })
+      put(JSONObject().apply {
+        put("role", "user")
+        put("content", userMsg)
+      })
+    }
+
+    val res = executeChatWithFallback(
+      messages = messagesArray,
+      preferredModel = model,
+      temperature = 0.5
     )
 
     res.fold(
@@ -326,10 +377,21 @@ Requirements:
 """
     val userMsg = "Create an email design for: $prompt\nStyle: $style\nInclude full HTML skeleton from <!DOCTYPE html> to </html>."
 
-    val res = chat(
-      conversation = listOf(AiChatMessage(role = "user", content = userMsg)),
-      model = model,
-      systemPrompt = sysPrompt
+    val messagesArray = JSONArray().apply {
+      put(JSONObject().apply {
+        put("role", "system")
+        put("content", sysPrompt)
+      })
+      put(JSONObject().apply {
+        put("role", "user")
+        put("content", userMsg)
+      })
+    }
+
+    val res = executeChatWithFallback(
+      messages = messagesArray,
+      preferredModel = model,
+      temperature = 0.7
     )
 
     res.fold(
@@ -351,10 +413,21 @@ Generate 5 distinct subject line options (Urgent, Curiosity, Direct, Benefit-foc
 Return ONLY a valid JSON array of strings, e.g. ["Subject 1", "Subject 2", "Subject 3", "Subject 4", "Subject 5"].
 No markdown tags or extra explanation.
 """
-    val res = chat(
-      conversation = listOf(AiChatMessage(role = "user", content = "Topic/Content: $topicOrContent")),
-      model = model,
-      systemPrompt = sysPrompt
+    val messagesArray = JSONArray().apply {
+      put(JSONObject().apply {
+        put("role", "system")
+        put("content", sysPrompt)
+      })
+      put(JSONObject().apply {
+        put("role", "user")
+        put("content", "Topic/Content: $topicOrContent")
+      })
+    }
+
+    val res = executeChatWithFallback(
+      messages = messagesArray,
+      preferredModel = model,
+      temperature = 0.8
     )
 
     res.fold(
@@ -368,7 +441,6 @@ No markdown tags or extra explanation.
           }
           Result.success(list)
         } catch (_: Exception) {
-          // Fallback parsing lines
           val lines = content.lines()
             .map { it.replace(Regex("^[0-9]+[.)]\\s*"), "").replace("\"", "").trim() }
             .filter { it.isNotBlank() && !it.startsWith("[") && !it.startsWith("]") }
@@ -380,18 +452,16 @@ No markdown tags or extra explanation.
     )
   }
 
-  private fun parseErrorMessage(responseBody: String, statusCode: Int): String {
-    return try {
-      val json = JSONObject(responseBody)
-      val err = json.optJSONObject("error")
-      val msg = err?.optString("message") ?: json.optString("message")
-      if (msg.isNotBlank()) "Error ($statusCode): $msg" else "Request failed with HTTP status $statusCode"
-    } catch (_: Exception) {
-      if (statusCode == 401) {
-        "Unauthorized (401): Invalid API key in Secrets panel."
-      } else {
-        "Request failed with HTTP $statusCode"
-      }
+  /**
+   * Sanitizes error messages to completely hide third-party router and internal names.
+   */
+  private fun sanitizeError(responseBody: String, statusCode: Int): String {
+    return when (statusCode) {
+      401 -> "Invalid AI credentials. Please ensure your API key is correctly saved in Secrets."
+      404 -> "Model temporarily unavailable. Retrying with next free engine..."
+      429 -> "Rate limit reached. Please wait a brief moment before sending another prompt."
+      500, 502, 503 -> "AI engine is temporarily busy. Retrying shortly..."
+      else -> "AI service is currently busy ($statusCode). Please try again in a few moments."
     }
   }
 

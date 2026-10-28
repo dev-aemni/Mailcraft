@@ -16,12 +16,14 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -72,6 +74,7 @@ import com.example.ui.AppTab
 import com.example.ui.MailCraftViewModel
 import com.example.ui.components.AccountSettingsDialog
 import com.example.ui.components.SendProgressDialog
+import com.example.ui.screens.AiBotScreen
 import com.example.ui.screens.ComposeScreen
 import com.example.ui.screens.DeployScreen
 import com.example.ui.screens.HistoryScreen
@@ -115,6 +118,8 @@ fun MailCraftApp(viewModel: MailCraftViewModel = viewModel()) {
       currentAccount = senderAccount,
       isTesting = isTestingConnection,
       testResult = testConnectionResult,
+      isDark = isDark,
+      onToggleDarkMode = { viewModel.toggleAppDarkMode() },
       onDismiss = {
         showSettingsDialog = false
         viewModel.clearTestConnectionResult()
@@ -168,116 +173,6 @@ fun MailCraftApp(viewModel: MailCraftViewModel = viewModel()) {
           }
         },
         actions = {
-          // Neumorphic Dark Mode Toggle
-          NeuIconButton(
-            onClick = { viewModel.toggleAppDarkMode() },
-            isDark = isDark,
-            modifier = Modifier.size(34.dp).testTag("dark_mode_toggle_button")
-          ) {
-            Icon(
-              if (isDark) Icons.Default.LightMode else Icons.Default.DarkMode,
-              contentDescription = "Toggle Dark Mode",
-              tint = if (isDark) Color(0xFFFBBF24) else Color(0xFF6366F1),
-              modifier = Modifier.size(17.dp)
-            )
-          }
-
-          Spacer(modifier = Modifier.width(6.dp))
-
-          // Saved Drafts Quick Button with Live Count Badge
-          NeuIconButton(
-            onClick = { viewModel.setActiveTab(AppTab.DRAFTS) },
-            isDark = isDark,
-            modifier = Modifier.size(34.dp).testTag("top_bar_drafts_button")
-          ) {
-            BadgedBox(
-              badge = {
-                if (drafts.isNotEmpty()) {
-                  Badge { Text("${drafts.size}") }
-                }
-              }
-            ) {
-              Icon(
-                Icons.Default.Drafts,
-                contentDescription = "Drafts",
-                tint = if (activeTab == AppTab.DRAFTS) Color(0xFF6366F1) else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(17.dp)
-              )
-            }
-          }
-
-          Spacer(modifier = Modifier.width(6.dp))
-
-          // Gmail Connection Status Pill
-          val hasPassword = senderAccount.appPassword.isNotBlank()
-          Box(
-            modifier = Modifier
-              .clip(RoundedCornerShape(12.dp))
-              .background(if (hasPassword) Color(0xFFDCFCE7) else Color(0xFFFEF3C7))
-              .clickable { showSettingsDialog = true }
-              .padding(horizontal = 9.dp, vertical = 6.dp)
-              .testTag("status_account_badge")
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Box(
-                modifier = Modifier
-                  .size(8.dp)
-                  .clip(CircleShape)
-                  .background(if (hasPassword) Color(0xFF16A34A) else Color(0xFFD97706))
-              )
-              Spacer(modifier = Modifier.width(5.dp))
-              Text(
-                text = if (hasPassword) "Ready" else "Setup",
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Bold,
-                color = if (hasPassword) Color(0xFF15803D) else Color(0xFFB45309)
-              )
-            }
-          }
-
-          Spacer(modifier = Modifier.width(6.dp))
-
-          // PFP (Profile Picture) Avatar Button
-          Box(
-            modifier = Modifier
-              .size(34.dp)
-              .clip(CircleShape)
-              .border(1.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
-              .background(MaterialTheme.colorScheme.primaryContainer)
-              .clickable { showSettingsDialog = true }
-              .testTag("top_bar_pfp_button"),
-            contentAlignment = Alignment.Center
-          ) {
-            val preset = senderAccount.avatarPreset
-            val customUrl = senderAccount.avatarUrl
-            if (preset == "avatar_custom" && customUrl.isNotBlank()) {
-              AsyncImage(
-                model = customUrl,
-                contentDescription = "PFP Avatar",
-                modifier = Modifier.size(34.dp).clip(CircleShape),
-                contentScale = ContentScale.Crop
-              )
-            } else if (preset == "avatar_monogram") {
-              val letter = (senderAccount.displayName.ifBlank { senderAccount.email }).take(1).uppercase()
-              Text(
-                text = letter.ifBlank { "U" },
-                fontWeight = FontWeight.Black,
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.primary
-              )
-            } else if (preset == "avatar_rocket") {
-              Icon(Icons.Default.RocketLaunch, contentDescription = "PFP", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-            } else if (preset == "avatar_code") {
-              Icon(Icons.Default.Code, contentDescription = "PFP", tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-            } else if (preset == "avatar_heart") {
-              Text("❤️", fontSize = 14.sp)
-            } else if (preset == "avatar_sparkles") {
-              Text("✨", fontSize = 14.sp)
-            } else {
-              Text("🟣", fontSize = 14.sp)
-            }
-          }
-
           IconButton(
             onClick = { showSettingsDialog = true },
             modifier = Modifier.testTag("top_bar_settings_button")
@@ -292,14 +187,17 @@ fun MailCraftApp(viewModel: MailCraftViewModel = viewModel()) {
       )
     },
     bottomBar = {
-      NavigationBar(
-        modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
-        containerColor = MaterialTheme.colorScheme.surface,
-        tonalElevation = 8.dp
-      ) {
+      val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+      if (!isImeVisible) {
+        NavigationBar(
+          modifier = Modifier.windowInsetsPadding(WindowInsets.navigationBars),
+          containerColor = MaterialTheme.colorScheme.surface,
+          tonalElevation = 8.dp
+        ) {
         NavigationBarItem(
           selected = activeTab == AppTab.COMPOSE,
           onClick = { viewModel.setActiveTab(AppTab.COMPOSE) },
+          alwaysShowLabel = false,
           icon = {
             BadgedBox(
               badge = {
@@ -311,7 +209,6 @@ fun MailCraftApp(viewModel: MailCraftViewModel = viewModel()) {
               Icon(Icons.Default.Edit, contentDescription = "Visual")
             }
           },
-          label = { Text("Visual") },
           modifier = Modifier.testTag("nav_compose_tab")
         )
 
@@ -321,22 +218,31 @@ fun MailCraftApp(viewModel: MailCraftViewModel = viewModel()) {
             viewModel.enableCustomHtmlMode()
             viewModel.setActiveTab(AppTab.HTML_WORKSTATION)
           },
-          icon = { Icon(Icons.Default.Code, contentDescription = "HTML Studio") },
-          label = { Text("HTML") },
+          alwaysShowLabel = false,
+          icon = { Icon(Icons.Default.Code, contentDescription = "HTML") },
           modifier = Modifier.testTag("nav_html_workstation_tab")
+        )
+
+        NavigationBarItem(
+          selected = activeTab == AppTab.AI_BOT,
+          onClick = { viewModel.setActiveTab(AppTab.AI_BOT) },
+          alwaysShowLabel = false,
+          icon = { Icon(Icons.Default.AutoAwesome, contentDescription = "AI Bot") },
+          modifier = Modifier.testTag("nav_ai_bot_tab")
         )
 
         NavigationBarItem(
           selected = activeTab == AppTab.PREVIEW,
           onClick = { viewModel.setActiveTab(AppTab.PREVIEW) },
+          alwaysShowLabel = false,
           icon = { Icon(Icons.Default.Visibility, contentDescription = "Preview") },
-          label = { Text("Preview") },
           modifier = Modifier.testTag("nav_preview_tab")
         )
 
         NavigationBarItem(
           selected = activeTab == AppTab.DRAFTS,
           onClick = { viewModel.setActiveTab(AppTab.DRAFTS) },
+          alwaysShowLabel = false,
           icon = {
             BadgedBox(
               badge = {
@@ -348,27 +254,27 @@ fun MailCraftApp(viewModel: MailCraftViewModel = viewModel()) {
               Icon(Icons.Default.Drafts, contentDescription = "Drafts")
             }
           },
-          label = { Text("Drafts") },
           modifier = Modifier.testTag("nav_drafts_tab")
         )
 
         NavigationBarItem(
           selected = activeTab == AppTab.DEPLOY,
           onClick = { viewModel.setActiveTab(AppTab.DEPLOY) },
+          alwaysShowLabel = false,
           icon = { Icon(Icons.Default.RocketLaunch, contentDescription = "Deploy") },
-          label = { Text("Deploy") },
           modifier = Modifier.testTag("nav_deploy_tab")
         )
 
         NavigationBarItem(
           selected = activeTab == AppTab.HISTORY,
           onClick = { viewModel.setActiveTab(AppTab.HISTORY) },
-          icon = { Icon(Icons.Default.History, contentDescription = "Sent Log") },
-          label = { Text("Sent") },
+          alwaysShowLabel = false,
+          icon = { Icon(Icons.Default.History, contentDescription = "Sent") },
           modifier = Modifier.testTag("nav_history_tab")
         )
       }
     }
+  }
   ) { innerPadding ->
     Box(
       modifier = Modifier
@@ -381,6 +287,7 @@ fun MailCraftApp(viewModel: MailCraftViewModel = viewModel()) {
           onOpenSettings = { showSettingsDialog = true }
         )
         AppTab.HTML_WORKSTATION -> HtmlWorkstationScreen(viewModel = viewModel)
+        AppTab.AI_BOT -> AiBotScreen(viewModel = viewModel)
         AppTab.PREVIEW -> PreviewScreen(viewModel = viewModel)
         AppTab.DRAFTS -> DraftsScreen(viewModel = viewModel)
         AppTab.DEPLOY -> DeployScreen(

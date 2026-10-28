@@ -5,7 +5,7 @@ import java.util.UUID
 
 /**
  * AI Model specification for MailCraft.
- * UI display names are clean and professional without internal router naming.
+ * Uses 100% free models (:free) with clean, professional branding without internal router names.
  */
 data class AiModelOption(
   val id: String,
@@ -17,30 +17,48 @@ data class AiModelOption(
 
 val AVAILABLE_AI_MODELS = listOf(
   AiModelOption(
-    id = "anthropic/claude-3.5-sonnet",
-    displayName = "Claude 3.5 Sonnet",
-    badge = "Ultra Intelligent",
-    description = "Industry standard for creative email copywriting, structured layouts & bulletproof HTML",
+    id = "meta-llama/llama-3.3-70b-instruct:free",
+    displayName = "Llama 3.3 70B",
+    badge = "Free • Recommended",
+    description = "Ultra versatile reasoning for email copywriting, structure & deliverability",
     isRecommended = true
   ),
   AiModelOption(
-    id = "openai/gpt-4o-mini",
-    displayName = "GPT-4o Mini",
-    badge = "Fast & Concise",
-    description = "Ultra rapid generation for snappy newsletters, quick subject lines & support answers"
-  ),
-  AiModelOption(
-    id = "meta-llama/llama-3.3-70b-instruct",
-    displayName = "Llama 3.3 70B",
-    badge = "High Versatility",
-    description = "Strong open reasoning model with natural conversational tone"
-  ),
-  AiModelOption(
-    id = "deepseek/deepseek-chat",
+    id = "deepseek/deepseek-chat:free",
     displayName = "DeepSeek V3",
-    badge = "Code Specialist",
-    description = "Deep technical reasoning, excellent for CSS debugging and email compatibility"
+    badge = "Free • Fast",
+    description = "Ultra rapid generation for marketing copy, snippets & support queries"
+  ),
+  AiModelOption(
+    id = "qwen/qwen-2.5-coder-32b-instruct:free",
+    displayName = "Qwen 2.5 Coder",
+    badge = "Free • Code Specialist",
+    description = "Specialized model for HTML email tables and bulletproof CSS styling"
+  ),
+  AiModelOption(
+    id = "deepseek/deepseek-r1:free",
+    displayName = "DeepSeek R1",
+    badge = "Free • Deep Logic",
+    description = "Advanced reasoning for complex campaign architecture and spam prevention"
+  ),
+  AiModelOption(
+    id = "meta-llama/llama-3.1-8b-instruct:free",
+    displayName = "Llama 3.1 8B",
+    badge = "Free • Snappy",
+    description = "Fast, lightweight model for instant subject lines and quick replies"
   )
+)
+
+/**
+ * Fallback free models tried in sequence if any model errors (404, rate limit, unavailable).
+ */
+val FREE_MODELS_FALLBACK_LIST = listOf(
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "deepseek/deepseek-chat:free",
+  "qwen/qwen-2.5-coder-32b-instruct:free",
+  "deepseek/deepseek-r1:free",
+  "meta-llama/llama-3.1-8b-instruct:free",
+  "mistralai/mistral-7b-instruct:free"
 )
 
 data class AiChatMessage(
