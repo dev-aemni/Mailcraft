@@ -68,9 +68,13 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material.icons.filled.Undo
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -1086,7 +1090,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
     }
   }
 
-  // 2.5 MailCraft AI HTML Assistant Modal
+  // 2.5 MailCraft AI Studio Copilot (Direct Workspace Edit & Code Generation)
   if (showAiModal) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     ModalBottomSheet(
@@ -1099,6 +1103,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
           .fillMaxWidth()
           .padding(horizontal = 20.dp)
           .padding(bottom = 32.dp)
+          .verticalScroll(rememberScrollState())
       ) {
         Row(
           modifier = Modifier.fillMaxWidth(),
@@ -1108,25 +1113,91 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
           Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
               modifier = Modifier
-                .size(34.dp)
+                .size(36.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFEDE9FE)),
+                .background(if (isDark) Color(0xFF3B2E68) else Color(0xFFEDE9FE)),
               contentAlignment = Alignment.Center
             ) {
-              Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(18.dp))
+              Icon(
+                Icons.Default.AutoAwesome,
+                contentDescription = null,
+                tint = if (isDark) Color(0xFFDDD6FE) else Color(0xFF7C3AED),
+                modifier = Modifier.size(20.dp)
+              )
             }
             Spacer(modifier = Modifier.width(10.dp))
             Column {
-              Text("MailCraft AI Assistant", fontWeight = FontWeight.Bold, fontSize = 17.sp, color = Color(0xFF1E1B4B))
-              Text("HTML optimization, generation & client compatibility", fontSize = 11.sp, color = Color(0xFF64748B))
+              Text(
+                "MailCraft AI Studio Copilot",
+                fontWeight = FontWeight.Bold,
+                fontSize = 17.sp,
+                color = wsTextColor
+              )
+              Text(
+                "Full Workspace Access • Code & Directory Read/Write",
+                fontSize = 11.sp,
+                color = wsSubtextColor
+              )
             }
           }
           IconButton(onClick = { if (!isAiWorking) showAiModal = false }) {
-            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF64748B))
+            Icon(Icons.Default.Close, contentDescription = "Close", tint = wsSubtextColor)
           }
         }
 
         Spacer(modifier = Modifier.height(14.dp))
+
+        // Workspace Context Card (Clean Native M3 Card)
+        Card(
+          shape = RoundedCornerShape(12.dp),
+          colors = CardDefaults.cardColors(containerColor = wsCardBg),
+          border = androidx.compose.foundation.BorderStroke(1.dp, wsBorder),
+          modifier = Modifier.fillMaxWidth()
+        ) {
+          Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+              Icon(
+                Icons.Default.FolderOpen,
+                contentDescription = null,
+                tint = if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED),
+                modifier = Modifier.size(16.dp)
+              )
+              Spacer(modifier = Modifier.width(6.dp))
+              Text(
+                "Live Project Directory Context",
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                color = wsTextColor
+              )
+            }
+            Text(
+              "• index.html (${textFieldValue.text.lines().size} lines, ${textFieldValue.text.length} chars)",
+              fontSize = 11.sp,
+              fontFamily = FontFamily.Monospace,
+              color = wsSubtextColor
+            )
+            Text(
+              "• assets/ (${attachments.size} files imported)",
+              fontSize = 11.sp,
+              fontFamily = FontFamily.Monospace,
+              color = wsSubtextColor
+            )
+            Text(
+              "• templates/ (${customTemplates.size} internal templates)",
+              fontSize = 11.sp,
+              fontFamily = FontFamily.Monospace,
+              color = wsSubtextColor
+            )
+            Text(
+              "• variables/ ({{MyEmail}}, {{RecipientEmail}}, {{SenderName}}, {{Subject}})",
+              fontSize = 11.sp,
+              fontFamily = FontFamily.Monospace,
+              color = wsSubtextColor
+            )
+          }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         // Mode Tabs
         Row(
@@ -1136,20 +1207,20 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
           FilterChip(
             selected = aiModalTab == 0,
             onClick = { aiModalTab = 0 },
-            label = { Text("🔧 Fix & Beautify") },
-            modifier = Modifier.weight(1f)
+            label = { Text("⚡ Edit Code With AI", fontSize = 12.sp) },
+            modifier = Modifier.weight(1.2f)
           )
           FilterChip(
             selected = aiModalTab == 1,
             onClick = { aiModalTab = 1 },
-            label = { Text("⚡ Prompt to HTML") },
+            label = { Text("✨ Prompt to HTML", fontSize = 12.sp) },
             modifier = Modifier.weight(1f)
           )
           FilterChip(
             selected = aiModalTab == 2,
             onClick = { aiModalTab = 2 },
-            label = { Text("💬 Support Bot") },
-            modifier = Modifier.weight(1f)
+            label = { Text("💬 Support Bot", fontSize = 12.sp) },
+            modifier = Modifier.weight(0.9f)
           )
         }
 
@@ -1157,45 +1228,91 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
 
         when (aiModalTab) {
           0 -> {
-            // Fix & Optimize HTML
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-              Card(
+            // Direct AI Code Modification
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+              Text(
+                "Tell MailCraft AI what to modify or add:",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = wsTextColor
+              )
+
+              OutlinedTextField(
+                value = aiGenPrompt,
+                onValueChange = { aiGenPrompt = it },
+                placeholder = {
+                  Text(
+                    "e.g., 'Make all buttons rounded purple with bold text, ensure Outlook 2019 compatibility, and add an unsubscribe footer'",
+                    fontSize = 12.sp,
+                    color = wsSubtextColor
+                  )
+                },
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .heightIn(min = 90.dp)
+                  .testTag("ai_workplace_instruction_input"),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
-                modifier = Modifier.fillMaxWidth()
+                maxLines = 4
+              )
+
+              // Quick Action Chips
+              Text(
+                "Quick 1-Tap Instructions:",
+                fontSize = 11.sp,
+                color = wsSubtextColor
+              )
+              Row(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
               ) {
-                Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                  Text("What the AI Optimizer does:", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color(0xFF1E1B4B))
-                  Text("• Repairs broken tags, nesting errors, and unclosed elements", fontSize = 12.sp, color = Color(0xFF475569))
-                  Text("• Converts fragile CSS classes to bulletproof inline CSS styles", fontSize = 12.sp, color = Color(0xFF475569))
-                  Text("• Ensures Gmail, Apple Mail & Outlook mobile responsiveness", fontSize = 12.sp, color = Color(0xFF475569))
-                  Text("• Adds table role=\"presentation\" and cellspacing/cellpadding attributes", fontSize = 12.sp, color = Color(0xFF475569))
+                val quickPills = listOf(
+                  "⚡ Fix & Validate HTML",
+                  "📱 Make 100% Mobile Responsive",
+                  "🎨 Inline CSS & Beautify",
+                  "🌙 Inject Dark Mode CSS",
+                  "🛡️ Anti-Spam Deliverability Boost",
+                  "📦 Add CTA Button Table",
+                  "🖼️ Add Responsive Image Banner",
+                  "📄 Add Clean Header & Footer"
+                )
+                quickPills.forEach { pill ->
+                  Surface(
+                    color = if (isDark) Color(0xFF26292E) else Color(0xFFF1F5F9),
+                    shape = RoundedCornerShape(8.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, wsBorder),
+                    modifier = Modifier.clickable {
+                      aiGenPrompt = pill
+                    }
+                  ) {
+                    Text(
+                      text = pill,
+                      fontSize = 11.sp,
+                      color = wsTextColor,
+                      modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                  }
                 }
               }
 
+              Spacer(modifier = Modifier.height(4.dp))
+
               Button(
                 onClick = {
-                  if (textFieldValue.text.isBlank()) {
-                    Toast.makeText(context, "No HTML code to fix!", Toast.LENGTH_SHORT).show()
-                    return@Button
-                  }
+                  val task = aiGenPrompt.ifBlank { "Fix, optimize and beautify this HTML code with responsive inline styles and full Outlook/Gmail compatibility" }
                   isAiWorking = true
-                  viewModel.fixHtmlWithAi(
-                    html = textFieldValue.text,
-                    onSuccess = { fixed ->
-                      isAiWorking = false
-                      val formatted = HtmlEmailGenerator.formatHtml(fixed)
-                      viewModel.setCustomHtml(formatted)
+                  viewModel.modifyCodeWithAi(task) { success, msg ->
+                    isAiWorking = false
+                    if (success) {
+                      val formatted = HtmlEmailGenerator.formatHtml(viewModel.customHtmlContent.value)
                       textFieldValue = TextFieldValue(formatted, TextRange(formatted.length))
+                      Toast.makeText(context, "✨ MailCraft AI updated index.html!", Toast.LENGTH_SHORT).show()
                       showAiModal = false
-                      Toast.makeText(context, "HTML code fixed & beautified!", Toast.LENGTH_SHORT).show()
-                    },
-                    onError = { err ->
-                      isAiWorking = false
-                      Toast.makeText(context, err, Toast.LENGTH_LONG).show()
+                    } else {
+                      Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                     }
-                  )
+                  }
                 },
                 enabled = !isAiWorking,
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF7C3AED)),
@@ -1203,16 +1320,38 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                 modifier = Modifier
                   .fillMaxWidth()
                   .height(48.dp)
-                  .testTag("ai_fix_html_submit_button")
+                  .testTag("ai_apply_workplace_code_button")
               ) {
                 if (isAiWorking) {
-                  androidx.compose.material3.CircularProgressIndicator(modifier = Modifier.size(18.dp), color = Color.White, strokeWidth = 2.dp)
+                  androidx.compose.material3.CircularProgressIndicator(
+                    modifier = Modifier.size(18.dp),
+                    color = Color.White,
+                    strokeWidth = 2.dp
+                  )
                   Spacer(modifier = Modifier.width(8.dp))
-                  Text("Optimizing & Fixing HTML...", fontWeight = FontWeight.Bold)
+                  Text("AI Editing Code in Real-Time...", fontWeight = FontWeight.Bold)
                 } else {
                   Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
                   Spacer(modifier = Modifier.width(8.dp))
-                  Text("Fix & Beautify Current HTML", fontWeight = FontWeight.Bold)
+                  Text("Apply Changes Directly to Workplace", fontWeight = FontWeight.Bold)
+                }
+              }
+
+              // Undo Button if AI changes exist
+              if (viewModel.canUndoAiEdit) {
+                OutlinedButton(
+                  onClick = {
+                    if (viewModel.undoLastAiCodeEdit()) {
+                      val reverted = viewModel.customHtmlContent.value
+                      textFieldValue = TextFieldValue(reverted, TextRange(reverted.length))
+                      Toast.makeText(context, "↺ Reverted last AI modification!", Toast.LENGTH_SHORT).show()
+                      showAiModal = false
+                    }
+                  },
+                  modifier = Modifier.fillMaxWidth().height(42.dp),
+                  shape = RoundedCornerShape(12.dp)
+                ) {
+                  Text("↺ Undo Last AI Change", fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
                 }
               }
             }
@@ -1221,7 +1360,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
           1 -> {
             // Generate HTML from Prompt
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-              Text("Select Email Design Style:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color(0xFF64748B))
+              Text("Select Email Design Style:", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = wsSubtextColor)
               Row(
                 modifier = Modifier
                   .fillMaxWidth()
@@ -1300,21 +1439,21 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
               Card(
                 shape = RoundedCornerShape(14.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFEDE9FE)),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFDDD6FE)),
+                colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF26292E) else Color(0xFFEDE9FE)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF383C44) else Color(0xFFDDD6FE)),
                 modifier = Modifier.fillMaxWidth()
               ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                   Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(24.dp))
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED), modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(10.dp))
-                    Text("MailCraft Support Bot", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color(0xFF1E1B4B))
+                    Text("MailCraft Support Bot", fontWeight = FontWeight.Bold, fontSize = 16.sp, color = wsTextColor)
                   }
                   Spacer(modifier = Modifier.height(8.dp))
                   Text(
                     text = "Chat interactively with the MailCraft AI assistant to debug SMTP issues (like Google 535 errors), audit spam triggers, draft custom layouts, or learn best practices.",
                     fontSize = 12.sp,
-                    color = Color(0xFF4C1D95),
+                    color = wsSubtextColor,
                     lineHeight = 17.sp
                   )
                 }
@@ -1633,7 +1772,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
       .fillMaxSize()
       .background(wsDarkBg)
   ) {
-    // 1. Spck Top Bar
+    // 1. Native Material 3 IDE Header
     Surface(
       color = wsTopBarBg,
       modifier = Modifier
@@ -1643,12 +1782,15 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
       Row(
         modifier = Modifier
           .fillMaxWidth()
-          .padding(horizontal = 12.dp, vertical = 6.dp),
+          .padding(horizontal = 10.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        // Left: Hamburger menu + HTML5 badge + index.html
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // Left: Hamburger menu + File pill
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          modifier = Modifier.weight(1f, fill = false)
+        ) {
           IconButton(
             onClick = { showTemplatesModal = true },
             modifier = Modifier.size(36.dp)
@@ -1658,144 +1800,110 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
 
           Spacer(modifier = Modifier.width(4.dp))
 
-          // Red HTML5 Badge [5]
-          Box(
-            modifier = Modifier
-              .size(20.dp)
-              .clip(RoundedCornerShape(3.dp))
-              .background(SpckHtml5Red),
-            contentAlignment = Alignment.Center
+          Surface(
+            color = if (isDark) Color(0xFF26292E) else Color(0xFFE2E8F0),
+            shape = RoundedCornerShape(6.dp),
+            modifier = Modifier.clickable { showTemplatesModal = true }
           ) {
-            Text(
-              text = "5",
-              color = Color.White,
-              fontWeight = FontWeight.ExtraBold,
-              fontSize = 11.sp,
-              fontFamily = FontFamily.Monospace
+            Row(
+              modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+              verticalAlignment = Alignment.CenterVertically
+            ) {
+              Icon(
+                Icons.Default.Code,
+                contentDescription = null,
+                tint = if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED),
+                modifier = Modifier.size(14.dp)
+              )
+              Spacer(modifier = Modifier.width(6.dp))
+              Text(
+                text = "index.html",
+                color = wsTextColor,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                fontFamily = FontFamily.Monospace
+              )
+              Spacer(modifier = Modifier.width(4.dp))
+              Text(
+                text = "(${lineCount}L)",
+                color = wsSubtextColor,
+                fontSize = 10.sp,
+                fontFamily = FontFamily.Monospace
+              )
+            }
+          }
+        }
+
+        // Right Action Buttons: AI Copilot, Run/Preview, Assets, Search, Overflow Menu
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+          // AI Copilot Button (Native M3 FilledTonal)
+          FilledTonalIconButton(
+            onClick = { showAiModal = true },
+            modifier = Modifier.size(36.dp).testTag("workstation_ai_assistant_button"),
+            colors = IconButtonDefaults.filledTonalIconButtonColors(
+              containerColor = if (isDark) Color(0xFF3B2E68) else Color(0xFFEDE9FE),
+              contentColor = if (isDark) Color(0xFFDDD6FE) else Color(0xFF7C3AED)
+            )
+          ) {
+            Icon(
+              Icons.Default.AutoAwesome,
+              contentDescription = "MailCraft AI Copilot",
+              modifier = Modifier.size(18.dp)
             )
           }
 
-          Spacer(modifier = Modifier.width(8.dp))
-
-          Text(
-            text = "index.html",
-            color = wsTextColor,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 15.sp,
-            fontFamily = FontFamily.Monospace
-          )
-        }
-
-        // Right Action Buttons: Assets, Variables, Search, GREEN RUN BUTTON ▶, More Options ⋮
-        Row(verticalAlignment = Alignment.CenterVertically) {
-          // Assets & Local File Import Button
-          Box(
-            modifier = Modifier
-              .clip(RoundedCornerShape(8.dp))
-              .background(Color(0xFFE0F2FE))
-              .border(1.dp, Color(0xFFBAE6FD), RoundedCornerShape(8.dp))
-              .clickable { showAssetsModal = true }
-              .padding(horizontal = 8.dp, vertical = 5.dp)
-              .testTag("workstation_assets_button")
+          // Live Preview Button (Native M3 Run Pill)
+          FilledTonalButton(
+            onClick = { showPreviewModal = true },
+            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp),
+            modifier = Modifier.height(34.dp).testTag("green_run_button"),
+            colors = ButtonDefaults.filledTonalButtonColors(
+              containerColor = if (isDark) Color(0xFF064E3B) else Color(0xFFDCFCE7),
+              contentColor = if (isDark) Color(0xFF6EE7B7) else Color(0xFF15803D)
+            ),
+            shape = RoundedCornerShape(8.dp)
           ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Icon(Icons.Default.FolderOpen, contentDescription = "Local Assets & Files", tint = Color(0xFF0284C7), modifier = Modifier.size(13.dp))
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("Assets", color = Color(0xFF0369A1), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
+            Icon(
+              Icons.Default.PlayArrow,
+              contentDescription = null,
+              modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+              text = "Run",
+              fontSize = 12.sp,
+              fontWeight = FontWeight.Bold
+            )
           }
 
-          Spacer(modifier = Modifier.width(6.dp))
-
-          // Save Draft Button (Room)
-          Box(
-            modifier = Modifier
-              .clip(RoundedCornerShape(8.dp))
-              .background(if (isDark) Color(0xFF134E48) else Color(0xFFCCFBF1))
-              .border(1.dp, if (isDark) Color(0xFF0D9488) else Color(0xFF99F6E4), RoundedCornerShape(8.dp))
-              .clickable {
-                viewModel.saveCurrentDraft()
-                Toast.makeText(context, "Saved to Room Drafts!", Toast.LENGTH_SHORT).show()
-              }
-              .padding(horizontal = 8.dp, vertical = 5.dp)
-              .testTag("workstation_draft_button")
+          // Assets & Files Button
+          IconButton(
+            onClick = { showAssetsModal = true },
+            modifier = Modifier.size(36.dp).testTag("workstation_assets_button")
           ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Text("📝", fontSize = 11.sp)
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("Draft", color = if (isDark) Color(0xFF5EEAD4) else Color(0xFF0F766E), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
+            Icon(
+              Icons.Default.FolderOpen,
+              contentDescription = "Local Assets & Files",
+              tint = wsSubtextColor,
+              modifier = Modifier.size(20.dp)
+            )
           }
-
-          // Variables Info Button (i)
-          Box(
-            modifier = Modifier
-              .clip(RoundedCornerShape(8.dp))
-              .background(Color(0xFFEDE9FE))
-              .border(1.dp, Color(0xFFC4B5FD), RoundedCornerShape(8.dp))
-              .clickable { showVariablesModal = true }
-              .padding(horizontal = 8.dp, vertical = 5.dp)
-              .testTag("workstation_vars_button")
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Icon(Icons.Default.Info, contentDescription = "Variables Info", tint = Color(0xFF7C3AED), modifier = Modifier.size(13.dp))
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("Vars (i)", color = Color(0xFF5B21B6), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
-          }
-
-          Spacer(modifier = Modifier.width(6.dp))
-
-          // MailCraft AI HTML Assistant Button
-          Box(
-            modifier = Modifier
-              .clip(RoundedCornerShape(8.dp))
-              .background(Color(0xFFEDE9FE))
-              .border(1.dp, Color(0xFFC4B5FD), RoundedCornerShape(8.dp))
-              .clickable { showAiModal = true }
-              .padding(horizontal = 8.dp, vertical = 5.dp)
-              .testTag("workstation_ai_assistant_button")
-          ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-              Icon(Icons.Default.AutoAwesome, contentDescription = "MailCraft AI", tint = Color(0xFF7C3AED), modifier = Modifier.size(13.dp))
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("AI", color = Color(0xFF5B21B6), fontSize = 11.sp, fontWeight = FontWeight.Bold)
-            }
-          }
-
-          Spacer(modifier = Modifier.width(6.dp))
 
           // Search Icon
           IconButton(
             onClick = { showSearchOverlay = !showSearchOverlay },
             modifier = Modifier.size(36.dp).testTag("workstation_search_icon")
           ) {
-            Icon(Icons.Default.Search, contentDescription = "Search", tint = Color(0xFF475569))
-          }
-
-          Spacer(modifier = Modifier.width(6.dp))
-
-          // GREEN RUN BUTTON ▶ (Opens preview instantly!)
-          Box(
-            modifier = Modifier
-              .size(34.dp)
-              .clip(CircleShape)
-              .background(SpckGreenRun)
-              .clickable {
-                showPreviewModal = true
-              }
-              .testTag("green_run_button"),
-            contentAlignment = Alignment.Center
-          ) {
             Icon(
-              Icons.Default.PlayArrow,
-              contentDescription = "Run / Live Preview",
-              tint = Color.White,
-              modifier = Modifier.size(22.dp)
+              Icons.Default.Search,
+              contentDescription = "Search",
+              tint = wsSubtextColor,
+              modifier = Modifier.size(20.dp)
             )
           }
-
-          Spacer(modifier = Modifier.width(6.dp))
 
           // More Options ⋮
           Box {
@@ -1803,7 +1911,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
               onClick = { showMenuDropdown = true },
               modifier = Modifier.size(36.dp).testTag("workstation_overflow_menu")
             ) {
-              Icon(Icons.Default.MoreVert, contentDescription = "More", tint = Color(0xFF475569))
+              Icon(Icons.Default.MoreVert, contentDescription = "More", tint = wsSubtextColor)
             }
 
             DropdownMenu(
@@ -1812,7 +1920,27 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
               modifier = Modifier.background(wsModalBg)
             ) {
               DropdownMenuItem(
-                text = { Text("📁 Local Assets & Files (Img/PDF/HTML)", color = Color(0xFF0369A1), fontWeight = FontWeight.Bold) },
+                text = { Text("⚡ MailCraft AI Copilot", color = Color(0xFF7C3AED), fontWeight = FontWeight.Bold) },
+                onClick = {
+                  showMenuDropdown = false
+                  showAiModal = true
+                }
+              )
+              if (viewModel.canUndoAiEdit) {
+                DropdownMenuItem(
+                  text = { Text("↺ Undo Last AI Edit", color = Color(0xFFD97706), fontWeight = FontWeight.Bold) },
+                  onClick = {
+                    showMenuDropdown = false
+                    if (viewModel.undoLastAiCodeEdit()) {
+                      val reverted = viewModel.customHtmlContent.value
+                      textFieldValue = TextFieldValue(reverted, TextRange(reverted.length))
+                      Toast.makeText(context, "Reverted last AI edit!", Toast.LENGTH_SHORT).show()
+                    }
+                  }
+                )
+              }
+              DropdownMenuItem(
+                text = { Text("📁 Local Assets & Files (${attachments.size})", color = Color(0xFF0369A1), fontWeight = FontWeight.Bold) },
                 onClick = {
                   showMenuDropdown = false
                   showAssetsModal = true
@@ -2066,6 +2194,17 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
           textFieldValue = textFieldValue.copy(selection = TextRange(newPos))
         }
 
+        // Quick Undo AI if available
+        if (viewModel.canUndoAiEdit) {
+          SpckSnippetPill("↺ Undo AI", isDark = isDark) {
+            if (viewModel.undoLastAiCodeEdit()) {
+              val reverted = viewModel.customHtmlContent.value
+              textFieldValue = TextFieldValue(reverted, TextRange(reverted.length))
+              Toast.makeText(context, "↺ Reverted last AI modification!", Toast.LENGTH_SHORT).show()
+            }
+          }
+        }
+
         // Characters: <, >, /, ", =, {}
         SpckAccessoryKey("<", isDark = isDark) {
           insertChar(textFieldValue, "<") { textFieldValue = it; viewModel.setCustomHtml(it.text) }
@@ -2156,22 +2295,24 @@ fun SpckAccessoryKey(
   isDark: Boolean = false,
   onClick: () -> Unit
 ) {
-  Box(
-    modifier = Modifier
-      .clip(RoundedCornerShape(4.dp))
-      .background(if (isDark) Color(0xFF26292E) else Color.White)
-      .border(1.dp, if (isDark) Color(0xFF383C44) else Color(0xFFCBD5E1), RoundedCornerShape(4.dp))
-      .clickable(onClick = onClick)
-      .padding(horizontal = 10.dp, vertical = 6.dp),
-    contentAlignment = Alignment.Center
+  Surface(
+    color = if (isDark) Color(0xFF26292E) else Color(0xFFE2E8F0),
+    shape = RoundedCornerShape(6.dp),
+    border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF383C44) else Color(0xFFCBD5E1)),
+    modifier = Modifier.clickable(onClick = onClick)
   ) {
-    Text(
-      text = label,
-      color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B),
-      fontSize = 12.sp,
-      fontFamily = FontFamily.Monospace,
-      fontWeight = FontWeight.Bold
-    )
+    Box(
+      modifier = Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Text(
+        text = label,
+        color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E293B),
+        fontSize = 12.sp,
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.Bold
+      )
+    }
   }
 }
 
@@ -2181,22 +2322,24 @@ fun SpckSnippetPill(
   isDark: Boolean = false,
   onClick: () -> Unit
 ) {
-  Box(
-    modifier = Modifier
-      .clip(RoundedCornerShape(4.dp))
-      .background(if (isDark) Color(0xFF312E81) else Color(0xFFEDE9FE))
-      .border(1.dp, if (isDark) Color(0xFF4C1D95) else Color(0xFFC4B5FD), RoundedCornerShape(4.dp))
-      .clickable(onClick = onClick)
-      .padding(horizontal = 8.dp, vertical = 6.dp),
-    contentAlignment = Alignment.Center
+  Surface(
+    color = if (isDark) Color(0xFF1E2433) else Color(0xFFF1F5F9),
+    shape = RoundedCornerShape(6.dp),
+    border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF2E384D) else Color(0xFFCBD5E1)),
+    modifier = Modifier.clickable(onClick = onClick)
   ) {
-    Text(
-      text = label,
-      color = if (isDark) Color(0xFFC4B5FD) else Color(0xFF6D28D9),
-      fontSize = 11.sp,
-      fontFamily = FontFamily.Monospace,
-      fontWeight = FontWeight.Bold
-    )
+    Box(
+      modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp),
+      contentAlignment = Alignment.Center
+    ) {
+      Text(
+        text = label,
+        color = if (isDark) Color(0xFFA78BFA) else Color(0xFF6D28D9),
+        fontSize = 11.sp,
+        fontFamily = FontFamily.Monospace,
+        fontWeight = FontWeight.SemiBold
+      )
+    }
   }
 }
 

@@ -166,6 +166,50 @@ class MailCraftViewModel(application: Application) : AndroidViewModel(applicatio
     )
   }
 
+  private var _previousHtmlCode: String? = null
+  val canUndoAiEdit: Boolean get() = _previousHtmlCode != null
+
+  fun undoLastAiCodeEdit(): Boolean {
+    val prev = _previousHtmlCode ?: return false
+    _customHtmlContent.value = prev
+    _previousHtmlCode = null
+    saveCurrentDraft()
+    return true
+  }
+
+  fun getCurrentProjectContextPrompt(): String {
+    val currentCode = _customHtmlContent.value
+    val assetNames = _attachments.value.map { "${it.fileName} (${it.sizeBytes / 1024}KB)" }
+    val templatesCount = customTemplates.value.size
+    val codePreview = if (currentCode.length > 5000) {
+      currentCode.take(5000) + "\n...[code continued, ${currentCode.lines().size} lines total]"
+    } else {
+      currentCode
+    }
+
+    return """
+You are MailCraft AI, with full real-time read and write access to the user's active code workplace.
+
+Project Directory Structure:
+├── index.html (Active Email Template, ${currentCode.lines().size} lines)
+├── assets/ (${assetNames.size} files: ${if (assetNames.isNotEmpty()) assetNames.joinToString(", ") else "none"})
+├── templates/ ($templatesCount saved Room database templates)
+└── variables/ ({{MyEmail}}, {{RecipientEmail}}, {{SenderName}}, {{Subject}})
+
+Current Code in index.html:
+```html
+$codePreview
+```
+
+CRITICAL INSTRUCTIONS:
+- You can directly edit and modify the code.
+- Whenever the user asks you to write, edit, rewrite, fix, format, style, or enhance code:
+  Always provide the complete, updated HTML email code inside ```html ... ``` code fences.
+  The app allows the user to apply your code directly into their live workplace with 1 tap.
+- Always use responsive, bulletproof email HTML tables with inline CSS for maximum deliverability across Gmail, Outlook, and Apple Mail.
+    """.trimIndent()
+  }
+
   fun sendAiChatMessage(userPrompt: String) {
     if (userPrompt.isBlank()) return
     val userMsg = AiChatMessage(role = "user", content = userPrompt.trim())
@@ -177,7 +221,8 @@ class MailCraftViewModel(application: Application) : AndroidViewModel(applicatio
     viewModelScope.launch {
       val result = aiService.chat(
         conversation = updatedList.takeLast(10),
-        model = _selectedAiModel.value.id
+        model = _selectedAiModel.value.id,
+        systemPrompt = getCurrentProjectContextPrompt()
       )
       _isAiThinking.value = false
       result.fold(
@@ -202,6 +247,50 @@ class MailCraftViewModel(application: Application) : AndroidViewModel(applicatio
             role = "assistant",
             content = "⚠️ $friendly"
           )
+        }
+      )
+    }
+  }
+
+  /**
+   * Directly modifies the workplace code using AI instructions.
+   */
+  fun modifyCodeWithAi(instruction: String, onComplete: (Boolean, String) -> Unit) {
+    if (instruction.isBlank()) return
+    _isAiThinking.value = true
+    viewModelScope.launch {
+      val contextPrompt = getCurrentProjectContextPrompt()
+      val userPrompt = """
+Task: $instruction
+Please modify and update the active code according to this task.
+Return the complete, updated HTML code inside ```html ... ``` code fences.
+      """.trimIndent()
+
+      val result = aiService.chat(
+        conversation = listOf(AiChatMessage(role = "user", content = userPrompt)),
+        model = _selectedAiModel.value.id,
+        systemPrompt = contextPrompt
+      )
+      _isAiThinking.value = false
+      result.fold(
+        onSuccess = { reply ->
+          val extracted = aiService.extractCodeBlock(reply, "html") ?: reply.trim()
+          if (extracted.contains("<html", ignoreCase = true) ||
+            extracted.contains("<!DOCTYPE", ignoreCase = true) ||
+            extracted.contains("<table", ignoreCase = true) ||
+            extracted.contains("<div", ignoreCase = true)
+          ) {
+            _previousHtmlCode = _customHtmlContent.value
+            _customHtmlContent.value = extracted
+            _isCustomHtmlActive.value = true
+            saveCurrentDraft()
+            onComplete(true, "Applied changes directly to index.html!")
+          } else {
+            onComplete(false, "AI provided recommendations without full replacement code.")
+          }
+        },
+        onFailure = { err ->
+          onComplete(false, err.localizedMessage ?: "Failed to connect to MailCraft AI.")
         }
       )
     }
