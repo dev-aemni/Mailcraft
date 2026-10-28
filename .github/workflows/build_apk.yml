@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build & Release Android APK
 
 on:
   push:
@@ -6,15 +6,62 @@ on:
   pull_request:
     branches: [ main, master ]
   workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Version Name (e.g. 1.0.1 - leave blank to auto-generate from build number)'
+        required: false
+        default: ''
+      release_title:
+        description: 'Release Title (e.g. MailCraft v1.0.1 Update - optional)'
+        required: false
+        default: ''
+      custom_notes:
+        description: 'Custom Release Notes / Changelog (optional)'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
 
 jobs:
-  build:
-    name: Build & Export APK
+  build-and-release:
+    name: Build & Auto-Release APK
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine Version & Tag
+        id: version
+        run: |
+          RUN_NUM="${{ github.run_number }}"
+          INPUT_VER="${{ github.event.inputs.version_name }}"
+          
+          if [ -n "$INPUT_VER" ]; then
+            # Clean leading 'v' if present
+            CLEAN_VER="${INPUT_VER#v}"
+            TAG="v${CLEAN_VER}"
+            VER_NAME="${CLEAN_VER}"
+          else
+            VER_NAME="1.0.${RUN_NUM}"
+            TAG="v1.0.${RUN_NUM}"
+          fi
+          
+          INPUT_TITLE="${{ github.event.inputs.release_title }}"
+          if [ -n "$INPUT_TITLE" ]; then
+            TITLE="$INPUT_TITLE"
+          else
+            TITLE="MailCraft $TAG"
+          fi
+
+          echo "ver_name=$VER_NAME" >> $GITHUB_OUTPUT
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+          echo "ver_code=$RUN_NUM" >> $GITHUB_OUTPUT
+          echo "Computed Version: $VER_NAME (Tag: $TAG, Code: $RUN_NUM)"
 
       - name: Set up JDK 17
         uses: actions/setup-java@v5
@@ -25,23 +72,100 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Restore Debug Keystore
+      - name: Configure Keystore and Secrets
+        env:
+          OPENROUTER_API: ${{ secrets.OPENROUTER_API || secrets.openrouter_api }}
+          openrouter_api: ${{ secrets.openrouter_api || secrets.OPENROUTER_API }}
         run: |
+          # 1. Restore debug.keystore from base64 if present, or generate it with keytool
           if [ -f debug.keystore.base64 ]; then
-            base64 -d debug.keystore.base64 > debug.keystore
-            echo "Restored debug.keystore successfully"
+            base64 -d debug.keystore.base64 > debug.keystore 2>/dev/null || true
+          fi
+
+          if [ ! -f debug.keystore ]; then
+            echo "Generating valid debug.keystore for signing..."
+            keytool -genkey -v -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+          # 2. Link openrouter_api from GitHub Repository Secrets into .env
+          touch .env
+          API_KEY="${OPENROUTER_API:-$openrouter_api}"
+          if [ -n "$API_KEY" ]; then
+            echo "openrouter_api=$API_KEY" >> .env
+            echo "OPENROUTER_API=$API_KEY" >> .env
+            echo "Linked openrouter_api secret into .env"
           fi
 
       - name: Make Gradlew Executable
         run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        env:
+          OPENROUTER_API: ${{ secrets.OPENROUTER_API || secrets.openrouter_api }}
+          openrouter_api: ${{ secrets.openrouter_api || secrets.OPENROUTER_API }}
+        run: |
+          ./gradlew assembleDebug \
+            -PversionCode=${{ steps.version.outputs.ver_code }} \
+            -PversionName=${{ steps.version.outputs.ver_name }} \
+            --no-daemon \
+            --stacktrace
 
-      - name: Upload Debug APK Artifact
+      - name: Prepare Release APK Artifact
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          APK_SRC="app/build/outputs/apk/debug/app-debug.apk"
+          APK_DEST="app/build/outputs/apk/debug/MailCraft-${TAG}.apk"
+          
+          if [ -f "$APK_SRC" ]; then
+            cp "$APK_SRC" "$APK_DEST"
+            echo "Prepared release binary: $APK_DEST"
+          else
+            echo "Error: Output APK not found at $APK_SRC"
+            exit 1
+          fi
+
+      - name: Upload APK as Workflow Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: MailCraft-Debug-APK
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: MailCraft-${{ steps.version.outputs.tag }}
+          path: app/build/outputs/apk/debug/MailCraft-*.apk
           if-no-files-found: error
           retention-days: 14
+
+      - name: Create GitHub Release and Push Tag
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.title }}
+          body: |
+            ### 📱 MailCraft Android Release ${{ steps.version.outputs.tag }}
+
+            ${{ github.event.inputs.custom_notes || 'Automated release built and packaged directly via GitHub Actions.' }}
+
+            ---
+            #### 📦 Download & Install:
+            - **Binary:** [`MailCraft-${{ steps.version.outputs.tag }}.apk`](https://github.com/${{ github.repository }}/releases/download/${{ steps.version.outputs.tag }}/MailCraft-${{ steps.version.outputs.tag }}.apk)
+            - **Version:** `${{ steps.version.outputs.ver_name }}` (Build code: `${{ steps.version.outputs.ver_code }}`)
+            - **Date:** ${{ github.event.head_commit.timestamp || 'Auto-generated' }}
+
+            #### ✨ Key Features:
+            - **Neumorphic Code Workplace** with Spck-style syntax-highlighted editor
+            - **Local HTML Assets & Files** import (Images, Icons, PDFs, HTML)
+            - **Offline Room Database** for email drafts & internal templates
+            - **MailCraft AI Assistant** powered by OpenRouter free-tier models with silent fallback
+            - **Full SMTP & Gmail App Password** integration with inbox deliverability guidance
+            - **Dark Mode & Light Mode** with automatic device theme sync
+          files: app/build/outputs/apk/debug/MailCraft-*.apk
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

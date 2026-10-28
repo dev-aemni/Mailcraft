@@ -16,12 +16,26 @@ android {
     applicationId = "com.aistudio.mailcraft.qnzxvl"
     minSdk = 24
     targetSdk = 36
-    versionCode = 1
-    versionName = "1.0"
+    val vCode = (project.findProperty("versionCode") as? String)?.toIntOrNull() ?: 1
+    val vName = (project.findProperty("versionName") as? String) ?: "1.0"
+    versionCode = vCode
+    versionName = vName
 
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-    val openRouterSecret = System.getenv("openrouter_api") ?: System.getenv("OPENROUTER_API") ?: ""
+    val envFile = rootProject.file(".env")
+    var secretFromEnvFile = ""
+    if (envFile.exists()) {
+      envFile.forEachLine { line ->
+        val trimmed = line.trim()
+        if (trimmed.startsWith("openrouter_api=") || trimmed.startsWith("OPENROUTER_API=")) {
+          secretFromEnvFile = trimmed.substringAfter("=").trim().trim('"', '\'')
+        }
+      }
+    }
+    val openRouterSecret = System.getenv("openrouter_api")
+      ?: System.getenv("OPENROUTER_API")
+      ?: if (secretFromEnvFile.isNotEmpty()) secretFromEnvFile else ""
     buildConfigField("String", "OPENROUTER_API_KEY", "\"$openRouterSecret\"")
   }
 
