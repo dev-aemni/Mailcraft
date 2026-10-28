@@ -65,6 +65,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.ime
 import androidx.compose.ui.platform.LocalDensity
 import com.example.ai.AiKeyProvider
+import com.example.ui.components.MarkdownMessageContent
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -94,9 +95,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.ai.AVAILABLE_AI_MODELS
 import com.example.ai.AiChatMessage
-import com.example.ai.AiModelOption
 import com.example.ui.MailCraftViewModel
 import com.example.ui.theme.NeuAccent
 import com.example.ui.theme.NeuButton
@@ -123,10 +122,8 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
   val chatMessages by viewModel.aiChatMessages.collectAsState()
   val isThinking by viewModel.isAiThinking.collectAsState()
   val aiError by viewModel.aiError.collectAsState()
-  val selectedModel by viewModel.selectedAiModel.collectAsState()
 
   var inputText by remember { mutableStateOf("") }
-  var showModelSheet by remember { mutableStateOf(false) }
   var showKeyDialog by remember { mutableStateOf(false) }
   var customKeyInput by remember { mutableStateOf(AiKeyProvider.getApiKey(context)) }
 
@@ -151,119 +148,6 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
   val textSecondary = if (isDark) NeuDarkTextSecondary else NeuLightTextSecondary
   val textMuted = if (isDark) NeuDarkTextMuted else NeuLightTextMuted
   val bgScreen = if (isDark) NeuDarkBg else NeuLightBg
-
-  // Model Picker Sheet
-  if (showModelSheet) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    ModalBottomSheet(
-      onDismissRequest = { showModelSheet = false },
-      sheetState = sheetState,
-      containerColor = if (isDark) Color(0xFF1E2024) else Color(0xFFF8FAFC)
-    ) {
-      Column(
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(horizontal = 20.dp)
-          .padding(bottom = 32.dp)
-      ) {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(Icons.Default.Tune, contentDescription = null, tint = NeuAccent, modifier = Modifier.size(22.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-              text = "Select Intelligence Engine",
-              fontSize = 18.sp,
-              fontWeight = FontWeight.Bold,
-              color = textPrimary
-            )
-          }
-          IconButton(onClick = { showModelSheet = false }) {
-            Icon(Icons.Default.Close, contentDescription = "Close", tint = textSecondary)
-          }
-        }
-
-        Text(
-          text = "Powered by high-parameter language models tuned specifically for email architecture & deliverability.",
-          fontSize = 12.sp,
-          color = textSecondary,
-          modifier = Modifier.padding(bottom = 16.dp)
-        )
-
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-          AVAILABLE_AI_MODELS.forEach { model ->
-            val isSelected = model.id == selectedModel.id
-            NeuCard(
-              modifier = Modifier
-                .fillMaxWidth()
-                .clickable {
-                  viewModel.selectAiModel(model)
-                  showModelSheet = false
-                  Toast.makeText(context, "Switched engine to ${model.displayName}", Toast.LENGTH_SHORT).show()
-                }
-                .testTag("ai_model_option_${model.id}"),
-              cornerRadius = 18.dp,
-              isDark = isDark,
-              contentPadding = PaddingValues(14.dp)
-            ) {
-              Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-              ) {
-                Column(modifier = Modifier.weight(1f)) {
-                  Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                      text = model.displayName,
-                      fontSize = 15.sp,
-                      fontWeight = FontWeight.Bold,
-                      color = textPrimary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Box(
-                      modifier = Modifier
-                        .clip(RoundedCornerShape(6.dp))
-                        .background(if (model.isRecommended) Color(0xFFDCFCE7) else Color(0xFFEDE9FE))
-                        .padding(horizontal = 7.dp, vertical = 2.dp)
-                    ) {
-                      Text(
-                        text = model.badge,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = if (model.isRecommended) Color(0xFF15803D) else Color(0xFF6D28D9)
-                      )
-                    }
-                  }
-                  Spacer(modifier = Modifier.height(4.dp))
-                  Text(
-                    text = model.description,
-                    fontSize = 12.sp,
-                    color = textSecondary,
-                    lineHeight = 16.sp
-                  )
-                }
-
-                if (isSelected) {
-                  Box(
-                    modifier = Modifier
-                      .size(28.dp)
-                      .clip(CircleShape)
-                      .background(NeuAccent),
-                    contentAlignment = Alignment.Center
-                  ) {
-                    Icon(Icons.Default.Check, contentDescription = "Active", tint = Color.White, modifier = Modifier.size(16.dp))
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-  }
 
   // AI Key Configuration Dialog
   if (showKeyDialog) {
@@ -378,28 +262,6 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
             )
           }
         }
-
-        // Engine selector badge button
-        Box(
-          modifier = Modifier
-            .clip(RoundedCornerShape(12.dp))
-            .background(if (isDark) Color(0xFF282B31) else Color(0xFFE4E9EE))
-            .clickable { showModelSheet = true }
-            .padding(horizontal = 10.dp, vertical = 6.dp)
-            .testTag("ai_engine_selector_button")
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-              text = selectedModel.displayName.take(12),
-              fontSize = 11.sp,
-              fontWeight = FontWeight.Bold,
-              color = NeuAccent
-            )
-            Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = NeuAccent, modifier = Modifier.size(16.dp))
-          }
-        }
-
-        Spacer(modifier = Modifier.width(6.dp))
 
         // AI Key configuration button
         NeuIconButton(
@@ -551,7 +413,7 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
 
       if (isThinking) {
         item {
-          ThinkingIndicatorRow(isDark = isDark, modelName = selectedModel.displayName)
+          ThinkingIndicatorRow(isDark = isDark)
         }
       }
     }
@@ -713,110 +575,21 @@ fun ChatMessageRow(
           )
         }
       } else {
-        // Assistant bubble: Neumorphic card with extracted code preview
+        // Assistant bubble: Neumorphic card with rich Markdown rendering
         NeuCard(
           modifier = Modifier.fillMaxWidth(),
           cornerRadius = 20.dp,
           isDark = isDark,
           contentPadding = PaddingValues(14.dp)
         ) {
-          Column {
-            Text(
-              text = message.content,
-              color = textPrimary,
-              fontSize = 13.sp,
-              lineHeight = 19.sp
-            )
-
-            // Extracted code block action card
-            if (message.extractedCode != null && message.extractedCode.isNotBlank()) {
-              Spacer(modifier = Modifier.height(10.dp))
-              NeuInsetCard(
-                modifier = Modifier.fillMaxWidth(),
-                cornerRadius = 14.dp,
-                isDark = isDark,
-                contentPadding = PaddingValues(10.dp)
-              ) {
-                Column {
-                  Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                  ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                      Icon(
-                        if (message.isCodeHtml) Icons.Default.Code else Icons.Default.Code,
-                        contentDescription = null,
-                        tint = NeuAccent,
-                        modifier = Modifier.size(14.dp)
-                      )
-                      Spacer(modifier = Modifier.width(6.dp))
-                      Text(
-                        text = if (message.isCodeHtml) "HTML Email Snippet" else "Code Block",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = NeuAccent
-                      )
-                    }
-
-                    Text(
-                      text = "${message.extractedCode.lines().size} lines",
-                      fontSize = 10.sp,
-                      color = textSecondary
-                    )
-                  }
-
-                  Spacer(modifier = Modifier.height(6.dp))
-
-                  // Monospace snippet preview
-                  Text(
-                    text = message.extractedCode.take(220) + if (message.extractedCode.length > 220) "\n..." else "",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 10.sp,
-                    color = if (isDark) Color(0xFFCBD5E1) else Color(0xFF334155),
-                    lineHeight = 14.sp,
-                    maxLines = 6
-                  )
-
-                  Spacer(modifier = Modifier.height(10.dp))
-
-                  // Action Buttons for Code
-                  Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                  ) {
-                    if (message.isCodeHtml) {
-                      NeuButton(
-                        onClick = { onApplyHtml(message.extractedCode) },
-                        isPrimary = true,
-                        cornerRadius = 12.dp,
-                        isDark = isDark,
-                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                        modifier = Modifier.weight(1f).testTag("insert_html_button")
-                      ) {
-                        Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null, modifier = Modifier.size(13.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Open in Studio", fontSize = 11.sp)
-                      }
-                    }
-
-                    NeuButton(
-                      onClick = { onCopy(message.extractedCode) },
-                      isPrimary = false,
-                      cornerRadius = 12.dp,
-                      isDark = isDark,
-                      contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
-                      modifier = Modifier.weight(1f).testTag("copy_code_button")
-                    ) {
-                      Icon(Icons.Default.ContentCopy, contentDescription = null, modifier = Modifier.size(13.dp))
-                      Spacer(modifier = Modifier.width(4.dp))
-                      Text("Copy Code", fontSize = 11.sp)
-                    }
-                  }
-                }
-              }
-            }
-          }
+          MarkdownMessageContent(
+            content = message.content,
+            isDark = isDark,
+            textPrimary = textPrimary,
+            textSecondary = textSecondary,
+            onApplyHtml = onApplyHtml,
+            onCopy = onCopy
+          )
         }
       }
     }
@@ -824,7 +597,7 @@ fun ChatMessageRow(
 }
 
 @Composable
-fun ThinkingIndicatorRow(isDark: Boolean, modelName: String) {
+fun ThinkingIndicatorRow(isDark: Boolean) {
   val infiniteTransition = rememberInfiniteTransition(label = "pulse")
   val alpha by infiniteTransition.animateFloat(
     initialValue = 0.4f,
