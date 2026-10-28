@@ -50,6 +50,7 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.DeleteSweep
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Psychology
@@ -57,7 +58,13 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Speed
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.ui.platform.LocalDensity
+import com.example.ai.AiKeyProvider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -120,12 +127,22 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
 
   var inputText by remember { mutableStateOf("") }
   var showModelSheet by remember { mutableStateOf(false) }
+  var showKeyDialog by remember { mutableStateOf(false) }
+  var customKeyInput by remember { mutableStateOf(AiKeyProvider.getApiKey(context)) }
 
   val listState = rememberLazyListState()
 
   // Scroll to bottom when new messages arrive
   LaunchedEffect(chatMessages.size, isThinking) {
     if (chatMessages.isNotEmpty()) {
+      listState.animateScrollToItem(chatMessages.size - 1)
+    }
+  }
+
+  // Also scroll to bottom when keyboard opens so latest message is visible
+  val isImeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+  LaunchedEffect(isImeVisible) {
+    if (isImeVisible && chatMessages.isNotEmpty()) {
       listState.animateScrollToItem(chatMessages.size - 1)
     }
   }
@@ -248,6 +265,63 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
     }
   }
 
+  // AI Key Configuration Dialog
+  if (showKeyDialog) {
+    val hasKey = AiKeyProvider.hasValidKey(context)
+    AlertDialog(
+      onDismissRequest = { showKeyDialog = false },
+      title = {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Icon(Icons.Default.Key, contentDescription = null, tint = NeuAccent)
+          Spacer(modifier = Modifier.width(8.dp))
+          Text(text = "AI Access Key", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+        }
+      },
+      text = {
+        Column(modifier = Modifier.fillMaxWidth()) {
+          Text(
+            text = if (hasKey) "Status: Access Key Active ✅" else "Status: No Access Key Detected ⚠️",
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (hasKey) Color(0xFF10B981) else Color(0xFFEF4444)
+          )
+          Spacer(modifier = Modifier.height(6.dp))
+          Text(
+            text = "Enter your OpenRouter API key (sk-or-v1-...). Free models will use this key to generate code and copy.",
+            fontSize = 12.sp,
+            color = textSecondary,
+            lineHeight = 16.sp
+          )
+          Spacer(modifier = Modifier.height(12.dp))
+          OutlinedTextField(
+            value = customKeyInput,
+            onValueChange = { customKeyInput = it },
+            modifier = Modifier.fillMaxWidth().testTag("ai_key_input_field"),
+            placeholder = { Text("Paste sk-or-v1-...", fontSize = 13.sp) },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp)
+          )
+        }
+      },
+      confirmButton = {
+        TextButton(
+          onClick = {
+            AiKeyProvider.saveCustomKey(context, customKeyInput)
+            showKeyDialog = false
+            Toast.makeText(context, "AI Access Key saved successfully!", Toast.LENGTH_SHORT).show()
+          }
+        ) {
+          Text("Save Key", color = NeuAccent, fontWeight = FontWeight.Bold)
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showKeyDialog = false }) {
+          Text("Cancel", color = textSecondary)
+        }
+      }
+    )
+  }
+
   Column(
     modifier = Modifier
       .fillMaxSize()
@@ -323,6 +397,26 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
             )
             Icon(Icons.Default.KeyboardArrowDown, contentDescription = null, tint = NeuAccent, modifier = Modifier.size(16.dp))
           }
+        }
+
+        Spacer(modifier = Modifier.width(6.dp))
+
+        // AI Key configuration button
+        NeuIconButton(
+          onClick = {
+            customKeyInput = AiKeyProvider.getApiKey(context)
+            showKeyDialog = true
+          },
+          isDark = isDark,
+          modifier = Modifier.size(34.dp).testTag("ai_key_config_button")
+        ) {
+          val hasKey = AiKeyProvider.hasValidKey(context)
+          Icon(
+            Icons.Default.Key,
+            contentDescription = "AI Key Configuration",
+            tint = if (hasKey) NeuAccent else Color(0xFFEF4444),
+            modifier = Modifier.size(17.dp)
+          )
         }
 
         Spacer(modifier = Modifier.width(6.dp))
@@ -466,8 +560,7 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
     NeuCard(
       modifier = Modifier
         .fillMaxWidth()
-        .padding(horizontal = 14.dp, vertical = 8.dp)
-        .navigationBarsPadding(),
+        .padding(horizontal = 14.dp, vertical = 6.dp),
       cornerRadius = 24.dp,
       isDark = isDark,
       contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)

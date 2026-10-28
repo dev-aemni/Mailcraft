@@ -23,7 +23,7 @@ class MailCraftAiService(
   companion object {
     private const val TAG = "MailCraftAiService"
     private const val API_URL = "https://openrouter.ai/api/v1/chat/completions"
-    const val DEFAULT_MODEL = "meta-llama/llama-3.3-70b-instruct:free"
+    const val DEFAULT_MODEL = "openrouter/free"
 
     private const val SUPPORT_SYSTEM_PROMPT = """
 You are MailCraft AI, the intelligent, built-in support assistant and email design expert for MailCraft Studio.
@@ -457,11 +457,11 @@ No markdown tags or extra explanation.
    */
   private fun sanitizeError(responseBody: String, statusCode: Int): String {
     return when (statusCode) {
-      401 -> "Invalid AI credentials. Please ensure your API key is correctly saved in Secrets."
-      404 -> "Model temporarily unavailable. Retrying with next free engine..."
+      401 -> "Invalid AI credentials. Please ensure your access key is correctly set in Settings (⚙️)."
+      404 -> "AI engine is momentarily busy. Please try your prompt again in a few moments."
       429 -> "Rate limit reached. Please wait a brief moment before sending another prompt."
-      500, 502, 503 -> "AI engine is temporarily busy. Retrying shortly..."
-      else -> "AI service is currently busy ($statusCode). Please try again in a few moments."
+      500, 502, 503 -> "AI engine is temporarily busy. Please try again shortly."
+      else -> "MailCraft AI is momentarily busy ($statusCode). Please try again in a few moments."
     }
   }
 

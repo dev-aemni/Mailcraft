@@ -145,7 +145,7 @@ fun MailCraftApp(viewModel: MailCraftViewModel = viewModel()) {
   )
 
   Scaffold(
-    contentWindowInsets = WindowInsets.safeDrawing,
+    contentWindowInsets = WindowInsets(0, 0, 0, 0),
     topBar = {
       CenterAlignedTopAppBar(
         colors = TopAppBarDefaults.centerAlignedTopAppBarColors(

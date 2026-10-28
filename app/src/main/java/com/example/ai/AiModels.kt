@@ -5,7 +5,7 @@ import java.util.UUID
 
 /**
  * AI Model specification for MailCraft.
- * Uses 100% free models (:free) with clean, professional branding without internal router names.
+ * Uses 100% active free models (:free) with clean, professional branding without internal router names.
  */
 data class AiModelOption(
   val id: String,
@@ -17,48 +17,51 @@ data class AiModelOption(
 
 val AVAILABLE_AI_MODELS = listOf(
   AiModelOption(
-    id = "meta-llama/llama-3.3-70b-instruct:free",
-    displayName = "Llama 3.3 70B",
+    id = "openrouter/free",
+    displayName = "Smart Auto Free",
     badge = "Free • Recommended",
-    description = "Ultra versatile reasoning for email copywriting, structure & deliverability",
+    description = "Automatically connects to the most reliable, highest-speed free AI model available",
     isRecommended = true
   ),
   AiModelOption(
-    id = "deepseek/deepseek-chat:free",
-    displayName = "DeepSeek V3",
-    badge = "Free • Fast",
+    id = "google/gemma-4-31b-it:free",
+    displayName = "Gemma 4 31B",
+    badge = "Free • High Quality",
+    description = "Ultra versatile reasoning for email copywriting, structure & deliverability"
+  ),
+  AiModelOption(
+    id = "nvidia/nemotron-3.5-lightning:free",
+    displayName = "Nemotron 3.5 Fast",
+    badge = "Free • Snappy",
     description = "Ultra rapid generation for marketing copy, snippets & support queries"
   ),
   AiModelOption(
-    id = "qwen/qwen-2.5-coder-32b-instruct:free",
-    displayName = "Qwen 2.5 Coder",
+    id = "cohere/north-mini-code:free",
+    displayName = "North Mini Code",
     badge = "Free • Code Specialist",
     description = "Specialized model for HTML email tables and bulletproof CSS styling"
   ),
   AiModelOption(
-    id = "deepseek/deepseek-r1:free",
-    displayName = "DeepSeek R1",
-    badge = "Free • Deep Logic",
-    description = "Advanced reasoning for complex campaign architecture and spam prevention"
-  ),
-  AiModelOption(
-    id = "meta-llama/llama-3.1-8b-instruct:free",
-    displayName = "Llama 3.1 8B",
-    badge = "Free • Snappy",
-    description = "Fast, lightweight model for instant subject lines and quick replies"
+    id = "google/gemma-4-26b-a4b-it:free",
+    displayName = "Gemma 4 26B",
+    badge = "Free • Lightweight",
+    description = "Fast model for instant subject lines and quick replies"
   )
 )
 
 /**
  * Fallback free models tried in sequence if any model errors (404, rate limit, unavailable).
+ * 'openrouter/free' is first to guarantee dynamic failover to whatever free model is currently active.
  */
 val FREE_MODELS_FALLBACK_LIST = listOf(
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "deepseek/deepseek-chat:free",
-  "qwen/qwen-2.5-coder-32b-instruct:free",
-  "deepseek/deepseek-r1:free",
-  "meta-llama/llama-3.1-8b-instruct:free",
-  "mistralai/mistral-7b-instruct:free"
+  "openrouter/free",
+  "google/gemma-4-31b-it:free",
+  "nvidia/nemotron-3.5-lightning:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "cohere/north-mini-code:free",
+  "liquid/lfm-2.5-2.6b:free",
+  "thinkingmachines/inkling:free",
+  "poolside/laguna-s-2.1:free"
 )
 
 data class AiChatMessage(
