@@ -41,7 +41,6 @@ jobs:
           INPUT_VER="${{ github.event.inputs.version_name }}"
           
           if [ -n "$INPUT_VER" ]; then
-            # Clean leading 'v' if present
             CLEAN_VER="${INPUT_VER#v}"
             TAG="v${CLEAN_VER}"
             VER_NAME="${CLEAN_VER}"
@@ -74,8 +73,7 @@ jobs:
 
       - name: Configure Keystore and Secrets
         env:
-          OPENROUTER_API: ${{ secrets.OPENROUTER_API || secrets.openrouter_api }}
-          openrouter_api: ${{ secrets.openrouter_api || secrets.OPENROUTER_API }}
+          OPENROUTER_API: ${{ secrets.openrouter_api || secrets.OPENROUTER_API }}
         run: |
           # 1. Restore debug.keystore from base64 if present, or generate it with keytool
           if [ -f debug.keystore.base64 ]; then
@@ -96,10 +94,9 @@ jobs:
 
           # 2. Link openrouter_api from GitHub Repository Secrets into .env
           touch .env
-          API_KEY="${OPENROUTER_API:-$openrouter_api}"
-          if [ -n "$API_KEY" ]; then
-            echo "openrouter_api=$API_KEY" >> .env
-            echo "OPENROUTER_API=$API_KEY" >> .env
+          if [ -n "$OPENROUTER_API" ]; then
+            echo "openrouter_api=$OPENROUTER_API" >> .env
+            echo "OPENROUTER_API=$OPENROUTER_API" >> .env
             echo "Linked openrouter_api secret into .env"
           fi
 
@@ -108,8 +105,7 @@ jobs:
 
       - name: Build Debug APK
         env:
-          OPENROUTER_API: ${{ secrets.OPENROUTER_API || secrets.openrouter_api }}
-          openrouter_api: ${{ secrets.openrouter_api || secrets.OPENROUTER_API }}
+          OPENROUTER_API: ${{ secrets.openrouter_api || secrets.OPENROUTER_API }}
         run: |
           ./gradlew assembleDebug \
             -PversionCode=${{ steps.version.outputs.ver_code }} \
