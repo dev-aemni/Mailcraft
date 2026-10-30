@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.components.MailCraftFooter
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -74,6 +75,7 @@ import java.util.Locale
 fun TemplatesScreen(viewModel: MailCraftViewModel) {
   val context = LocalContext.current
   val customTemplates by viewModel.customTemplates.collectAsState()
+  val isDark by viewModel.isAppDarkMode.collectAsState()
   val builtInTemplates = TemplatePresets.allTemplates
 
   var selectedTab by remember { mutableStateOf(0) } // 0 = Internal, 1 = Built-in
@@ -443,6 +445,10 @@ fun TemplatesScreen(viewModel: MailCraftViewModel) {
           }
         }
       }
+    }
+
+    item {
+      MailCraftFooter(isDark = isDark)
     }
   }
 }

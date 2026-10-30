@@ -220,7 +220,6 @@ object GmailSmtpClient {
       )
 
       val rfcDate = SimpleDateFormat("EEE, d MMM yyyy HH:mm:ss Z", Locale.US).format(Date())
-      val messageId = "<${System.currentTimeMillis()}.${UUID.randomUUID().toString().take(12)}@mail.gmail.com>"
 
       val encodedSubject = "=?UTF-8?B?" + Base64.encodeToString(
         message.subject.toByteArray(Charsets.UTF_8),
@@ -232,21 +231,31 @@ object GmailSmtpClient {
 
       val sb = StringBuilder()
       sb.append("Date: $rfcDate\r\n")
-      sb.append("From: \"${sender.displayName.replace("\"", "")}\" <${sender.email.trim()}>\r\n")
+
+      val displayName = sender.displayName.trim()
+      if (displayName.isNotBlank()) {
+        val encodedSender = "=?UTF-8?B?" + Base64.encodeToString(displayName.toByteArray(Charsets.UTF_8), Base64.NO_WRAP) + "?="
+        sb.append("From: $encodedSender <${sender.email.trim()}>\r\n")
+      } else {
+        sb.append("From: <${sender.email.trim()}>\r\n")
+      }
+
       sb.append("To: ${message.to.joinToString(", ") { it.trim() }}\r\n")
       if (message.cc.isNotEmpty()) {
         sb.append("Cc: ${message.cc.joinToString(", ") { it.trim() }}\r\n")
       }
-      sb.append("Reply-To: \"${sender.displayName.replace("\"", "")}\" <${sender.email.trim()}>\r\n")
+      sb.append("Reply-To: <${sender.email.trim()}>\r\n")
       sb.append("Subject: $encodedSubject\r\n")
-      sb.append("Message-ID: $messageId\r\n")
       sb.append("MIME-Version: 1.0\r\n")
-      sb.append("Precedence: personal\r\n")
-      sb.append("X-Priority: 3\r\n")
-      sb.append("Priority: normal\r\n")
-      sb.append("Importance: normal\r\n")
-      sb.append("X-Mailer: MailCraft Mobile Studio v2.5 (Direct Inbox Priority)\r\n")
-      sb.append("Auto-Submitted: no\r\n")
+      sb.append("X-Mailer: MailCraft/1.0 (Android Studio)\r\n")
+
+      val isSelfSend = message.to.any { it.trim().equals(sender.email.trim(), ignoreCase = true) }
+      if (isSelfSend) {
+        logs.add(SmtpLog(message = "Notice: Recipient includes your own sender address (${sender.email}). In Gmail, self-sent messages are archived directly into 'Sent' and 'All Mail'."))
+      }
+
+      // Base64.CRLF (4) ensures strict RFC 2045 / RFC 5321 CRLF line endings
+      val base64Flags = Base64.CRLF
 
       if (!hasAttachments) {
         val boundary = "==_MailCraft_" + UUID.randomUUID().toString().replace("-", "")
@@ -258,7 +267,7 @@ object GmailSmtpClient {
         sb.append("Content-Type: text/plain; charset=UTF-8\r\n")
         sb.append("Content-Transfer-Encoding: base64\r\n")
         sb.append("\r\n")
-        sb.append(Base64.encodeToString(plainTextContent.toByteArray(Charsets.UTF_8), Base64.DEFAULT))
+        sb.append(Base64.encodeToString(plainTextContent.toByteArray(Charsets.UTF_8), base64Flags).trim())
         sb.append("\r\n")
 
         // HTML part
@@ -266,7 +275,7 @@ object GmailSmtpClient {
         sb.append("Content-Type: text/html; charset=UTF-8\r\n")
         sb.append("Content-Transfer-Encoding: base64\r\n")
         sb.append("\r\n")
-        sb.append(Base64.encodeToString(htmlContent.toByteArray(Charsets.UTF_8), Base64.DEFAULT))
+        sb.append(Base64.encodeToString(htmlContent.toByteArray(Charsets.UTF_8), base64Flags).trim())
         sb.append("\r\n")
 
         sb.append("--$boundary--\r\n")
@@ -287,14 +296,14 @@ object GmailSmtpClient {
         sb.append("Content-Type: text/plain; charset=UTF-8\r\n")
         sb.append("Content-Transfer-Encoding: base64\r\n")
         sb.append("\r\n")
-        sb.append(Base64.encodeToString(plainTextContent.toByteArray(Charsets.UTF_8), Base64.DEFAULT))
+        sb.append(Base64.encodeToString(plainTextContent.toByteArray(Charsets.UTF_8), base64Flags).trim())
         sb.append("\r\n")
 
         sb.append("--$altBoundary\r\n")
         sb.append("Content-Type: text/html; charset=UTF-8\r\n")
         sb.append("Content-Transfer-Encoding: base64\r\n")
         sb.append("\r\n")
-        sb.append(Base64.encodeToString(htmlContent.toByteArray(Charsets.UTF_8), Base64.DEFAULT))
+        sb.append(Base64.encodeToString(htmlContent.toByteArray(Charsets.UTF_8), base64Flags).trim())
         sb.append("\r\n")
 
         sb.append("--$altBoundary--\r\n")
@@ -310,7 +319,7 @@ object GmailSmtpClient {
 
             val safeName = att.fileName.replace("\"", "").replace("\r", "").replace("\n", "").ifBlank { "attachment.bin" }
             val mime = att.mimeType.ifBlank { "application/octet-stream" }
-            val encodedAttData = Base64.encodeToString(bytes, Base64.DEFAULT)
+            val encodedAttData = Base64.encodeToString(bytes, base64Flags).trim()
 
             sb.append("\r\n--$mixedBoundary\r\n")
             sb.append("Content-Type: $mime; name=\"$safeName\"\r\n")
@@ -328,10 +337,17 @@ object GmailSmtpClient {
         sb.append("\r\n--$mixedBoundary--\r\n")
       }
 
-      sb.append("\r\n.\r\n")
+      // Strictly normalize every newline in the MIME payload to CRLF (\r\n) without any bare LFs
+      val normalizedPayload = sb.toString()
+        .replace("\r\n", "\n")
+        .replace("\r", "\n")
+        .replace("\n", "\r\n")
 
-      // Write raw message
-      writer.write(sb.toString())
+      writer.write(normalizedPayload)
+      if (!normalizedPayload.endsWith("\r\n")) {
+        writer.write("\r\n")
+      }
+      writer.write(".\r\n")
       writer.flush()
       logs.add(SmtpLog(message = "Email data streamed to Gmail SMTP. Awaiting server acknowledgement..."))
 
@@ -342,9 +358,9 @@ object GmailSmtpClient {
         readResponse(reader, logs)
         return@withContext SmtpSendResult(
           true,
-          "Email dispatched successfully via Gmail! ($sendResult)",
+          "Email dispatched successfully via Gmail SMTP ($sendResult)",
           logs,
-          messageId
+          messageId = sendResult
         )
       } else {
         return@withContext SmtpSendResult(false, "Delivery error: $sendResult", logs)

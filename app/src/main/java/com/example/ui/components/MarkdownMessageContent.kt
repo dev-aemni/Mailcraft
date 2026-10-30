@@ -21,8 +21,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Mail
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.foundation.clickable
+import com.example.ai.AiAppAction
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,37 +62,71 @@ fun MarkdownMessageContent(
   isDark: Boolean,
   textPrimary: Color,
   textSecondary: Color,
+  actions: List<AiAppAction> = emptyList(),
+  onExecuteAction: ((AiAppAction) -> Unit)? = null,
   onApplyHtml: (String) -> Unit,
   onCopy: (String) -> Unit
 ) {
   val codeBlockRegex = Regex("""```([a-zA-Z0-9_-]*)\n?([\s\S]*?)```""")
   val matches = codeBlockRegex.findAll(content).toList()
 
-  if (matches.isEmpty()) {
-    // No code blocks: render pure formatted Markdown text
-    MarkdownTextBlock(
-      markdown = content,
-      isDark = isDark,
-      textPrimary = textPrimary,
-      textSecondary = textSecondary
-    )
-    return
-  }
-
-  // Interleave text blocks and code blocks
   Column(
     modifier = Modifier.fillMaxWidth(),
     verticalArrangement = Arrangement.spacedBy(8.dp)
   ) {
-    var lastIndex = 0
+    if (matches.isEmpty()) {
+      MarkdownTextBlock(
+        markdown = content,
+        isDark = isDark,
+        textPrimary = textPrimary,
+        textSecondary = textSecondary
+      )
+    } else {
+      var lastIndex = 0
 
-    matches.forEach { match ->
-      val start = match.range.first
-      val end = match.range.last + 1
+      matches.forEach { match ->
+        val start = match.range.first
+        val end = match.range.last + 1
 
-      // Text before code block
-      if (start > lastIndex) {
-        val textSegment = content.substring(lastIndex, start).trim()
+        // Text before code block
+        if (start > lastIndex) {
+          val textSegment = content.substring(lastIndex, start).trim()
+          if (textSegment.isNotBlank()) {
+            MarkdownTextBlock(
+              markdown = textSegment,
+              isDark = isDark,
+              textPrimary = textPrimary,
+              textSecondary = textSecondary
+            )
+          }
+        }
+
+        val language = match.groupValues.getOrNull(1)?.trim()?.lowercase().orEmpty().ifBlank { "code" }
+        val code = match.groupValues.getOrNull(2)?.trim().orEmpty()
+
+        if (code.isNotBlank()) {
+          val isHtmlCode = language == "html" || code.contains("<html", ignoreCase = true) ||
+            code.contains("<!DOCTYPE", ignoreCase = true) ||
+            code.contains("<table", ignoreCase = true) ||
+            code.contains("<div", ignoreCase = true)
+
+          CodeBlockCard(
+            code = code,
+            language = language,
+            isHtmlCode = isHtmlCode,
+            isDark = isDark,
+            textSecondary = textSecondary,
+            onApplyHtml = onApplyHtml,
+            onCopy = onCopy
+          )
+        }
+
+        lastIndex = end
+      }
+
+      // Text after last code block
+      if (lastIndex < content.length) {
+        val textSegment = content.substring(lastIndex).trim()
         if (textSegment.isNotBlank()) {
           MarkdownTextBlock(
             markdown = textSegment,
@@ -95,41 +136,73 @@ fun MarkdownMessageContent(
           )
         }
       }
-
-      val language = match.groupValues.getOrNull(1)?.trim()?.lowercase().orEmpty().ifBlank { "code" }
-      val code = match.groupValues.getOrNull(2)?.trim().orEmpty()
-
-      if (code.isNotBlank()) {
-        val isHtmlCode = language == "html" || code.contains("<html", ignoreCase = true) ||
-          code.contains("<!DOCTYPE", ignoreCase = true) ||
-          code.contains("<table", ignoreCase = true) ||
-          code.contains("<div", ignoreCase = true)
-
-        CodeBlockCard(
-          code = code,
-          language = language,
-          isHtmlCode = isHtmlCode,
-          isDark = isDark,
-          textSecondary = textSecondary,
-          onApplyHtml = onApplyHtml,
-          onCopy = onCopy
-        )
-      }
-
-      lastIndex = end
     }
 
-    // Text after last code block
-    if (lastIndex < content.length) {
-      val textSegment = content.substring(lastIndex).trim()
-      if (textSegment.isNotBlank()) {
-        MarkdownTextBlock(
-          markdown = textSegment,
+    // Render interactive Action Buttons if any app actions were identified
+    if (actions.isNotEmpty()) {
+      Spacer(modifier = Modifier.height(4.dp))
+      actions.forEach { action ->
+        AppActionPill(
+          action = action,
           isDark = isDark,
-          textPrimary = textPrimary,
-          textSecondary = textSecondary
+          onClick = { onExecuteAction?.invoke(action) }
         )
       }
+    }
+  }
+}
+
+@Composable
+private fun AppActionPill(
+  action: AiAppAction,
+  isDark: Boolean,
+  onClick: () -> Unit
+) {
+  val (label, icon) = when (action) {
+    is AiAppAction.OpenDraft -> {
+      val titleStr = if (!action.title.isNullOrBlank()) ": \"${action.title}\"" else ""
+      Pair("🚀 Open & Edit Draft #${action.id}$titleStr", Icons.Default.PlayArrow)
+    }
+    is AiAppAction.SwitchTab -> Pair("👉 Switch to ${action.tabName}", Icons.AutoMirrored.Filled.OpenInNew)
+    is AiAppAction.SetSubject -> Pair("✏️ Set Subject: \"${action.text}\"", Icons.Default.Edit)
+    is AiAppAction.SetRecipient -> Pair("✉️ Set Recipient: ${action.email}", Icons.Default.Mail)
+    is AiAppAction.SetHtml -> Pair("✨ Apply HTML into Studio", Icons.Default.Code)
+    is AiAppAction.SendTest -> Pair("📥 Send Test to Inbox", Icons.Default.CheckCircle)
+    is AiAppAction.FormatHtml -> Pair("⇥ Format HTML Code", Icons.Default.Code)
+  }
+
+  Surface(
+    modifier = Modifier
+      .fillMaxWidth()
+      .clickable(onClick = onClick)
+      .testTag("ai_action_pill"),
+    color = if (isDark) Color(0xFF262438) else Color(0xFFEDE9FE),
+    shape = RoundedCornerShape(12.dp),
+    border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF4C3E75) else Color(0xFFC4B5FD))
+  ) {
+    Row(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 14.dp, vertical = 10.dp),
+      verticalAlignment = Alignment.CenterVertically,
+      horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+      Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+        Icon(icon, contentDescription = null, tint = NeuAccent, modifier = Modifier.size(16.dp))
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+          text = label,
+          fontSize = 12.sp,
+          fontWeight = FontWeight.Bold,
+          color = if (isDark) Color(0xFFE2E8F0) else Color(0xFF3B1E78)
+        )
+      }
+      Text(
+        text = "Execute ⚡",
+        fontSize = 10.sp,
+        fontWeight = FontWeight.Bold,
+        color = NeuAccent
+      )
     }
   }
 }

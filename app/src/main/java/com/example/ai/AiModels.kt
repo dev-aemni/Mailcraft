@@ -64,13 +64,24 @@ val FREE_MODELS_FALLBACK_LIST = listOf(
   "poolside/laguna-s-2.1:free"
 )
 
+sealed class AiAppAction {
+  data class OpenDraft(val id: Long, val title: String? = null) : AiAppAction()
+  data class SwitchTab(val tabName: String) : AiAppAction()
+  data class SetSubject(val text: String) : AiAppAction()
+  data class SetRecipient(val email: String) : AiAppAction()
+  data class SetHtml(val html: String) : AiAppAction()
+  data class SendTest(val note: String? = null) : AiAppAction()
+  object FormatHtml : AiAppAction()
+}
+
 data class AiChatMessage(
   val id: String = UUID.randomUUID().toString(),
   val role: String, // "system", "user", "assistant"
   val content: String,
   val timestamp: Long = System.currentTimeMillis(),
   val extractedCode: String? = null,
-  val isCodeHtml: Boolean = false
+  val isCodeHtml: Boolean = false,
+  val actions: List<AiAppAction> = emptyList()
 )
 
 data class GeneratedEmail(

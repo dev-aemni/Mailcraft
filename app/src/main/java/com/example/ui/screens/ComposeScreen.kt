@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.content.Intent
 import android.net.Uri
+import com.example.ui.components.MailCraftFooter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -1381,6 +1382,10 @@ fun ComposeScreen(
         }
       }
       Spacer(modifier = Modifier.height(24.dp))
+    }
+
+    item {
+      MailCraftFooter(isDark = isDark)
     }
   }
 }

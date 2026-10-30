@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.components.MailCraftFooter
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,6 +51,7 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(viewModel: MailCraftViewModel) {
   val sentEmails by viewModel.sentEmails.collectAsState()
+  val isDark by viewModel.isAppDarkMode.collectAsState()
 
   LazyColumn(
     modifier = Modifier.fillMaxSize(),
@@ -232,6 +234,10 @@ fun HistoryScreen(viewModel: MailCraftViewModel) {
           }
         }
       }
+    }
+
+    item {
+      MailCraftFooter(isDark = isDark)
     }
   }
 }

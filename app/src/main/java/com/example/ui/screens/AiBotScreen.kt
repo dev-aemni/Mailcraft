@@ -3,7 +3,10 @@ package com.example.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
+import com.example.ui.components.MailCraftFooter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -297,14 +300,72 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
       }
     }
 
+    // Developer & App Control Banner (ai top)
+    Surface(
+      modifier = Modifier
+        .fillMaxWidth()
+        .padding(horizontal = 14.dp, vertical = 2.dp),
+      color = if (isDark) Color(0xFF1E222A) else Color(0xFFEEF2FF),
+      shape = RoundedCornerShape(12.dp),
+      border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF2C3240) else Color(0xFFC7D2FE))
+    ) {
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 12.dp, vertical = 6.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Column(modifier = Modifier.weight(1f)) {
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+              text = "2026 @dev-aemni",
+              fontSize = 11.sp,
+              fontWeight = FontWeight.Bold,
+              color = NeuAccent
+            )
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+              text = "• App Control Active ⚡",
+              fontSize = 10.sp,
+              fontWeight = FontWeight.SemiBold,
+              color = Color(0xFF10B981)
+            )
+          }
+          Text(
+            text = "To request features/update: create an issue at github.com/dev-aemni/Mailcraft/issues",
+            fontSize = 10.sp,
+            color = textSecondary,
+            lineHeight = 13.sp
+          )
+        }
+        TextButton(
+          onClick = {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dev-aemni/Mailcraft/issues"))
+            try { context.startActivity(intent) } catch (_: Exception) {}
+          },
+          contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+        ) {
+          Text("Issues ↗", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NeuAccent)
+        }
+      }
+    }
+
     // Quick Prompts Chips Bar
     Row(
       modifier = Modifier
         .fillMaxWidth()
         .horizontalScroll(rememberScrollState())
-        .padding(horizontal = 14.dp, vertical = 2.dp),
+        .padding(horizontal = 14.dp, vertical = 4.dp),
       horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
+      QuickPromptChip(
+        label = "🔍 Shortest Draft to Continue",
+        isDark = isDark,
+        onClick = {
+          viewModel.sendAiChatMessage("Check my drafts .. which one is shortest that I can continue now?")
+        }
+      )
       QuickPromptChip(
         label = "🔑 Fix Gmail App Password",
         isDark = isDark,
@@ -399,6 +460,11 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
         ChatMessageRow(
           message = message,
           isDark = isDark,
+          onExecuteAction = { action ->
+            viewModel.executeAiAppAction(action) { feedback ->
+              Toast.makeText(context, feedback, Toast.LENGTH_SHORT).show()
+            }
+          },
           onApplyHtml = { code ->
             viewModel.applyHtmlToWorkstation(code)
             Toast.makeText(context, "Loaded into HTML Workstation!", Toast.LENGTH_SHORT).show()
@@ -415,6 +481,10 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
         item {
           ThinkingIndicatorRow(isDark = isDark)
         }
+      }
+
+      item {
+        MailCraftFooter(isDark = isDark)
       }
     }
 
@@ -530,6 +600,7 @@ fun QuickPromptChip(
 fun ChatMessageRow(
   message: AiChatMessage,
   isDark: Boolean,
+  onExecuteAction: ((com.example.ai.AiAppAction) -> Unit)? = null,
   onApplyHtml: (String) -> Unit,
   onCopy: (String) -> Unit
 ) {
@@ -587,6 +658,8 @@ fun ChatMessageRow(
             isDark = isDark,
             textPrimary = textPrimary,
             textSecondary = textSecondary,
+            actions = message.actions,
+            onExecuteAction = onExecuteAction,
             onApplyHtml = onApplyHtml,
             onCopy = onCopy
           )

@@ -1,5 +1,8 @@
 package com.example.ui.components
 
+import android.content.Intent
+import android.net.Uri
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,19 +22,29 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Error
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.MailOutline
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +62,9 @@ fun SendProgressDialog(
   onSendViaDeviceApp: (() -> Unit)? = null
 ) {
   if (sendState is SendState.Idle) return
+
+  val context = LocalContext.current
+  var showLogs by remember { mutableStateOf(false) }
 
   Dialog(
     onDismissRequest = {
@@ -137,7 +153,7 @@ fun SendProgressDialog(
             }
             Spacer(modifier = Modifier.height(18.dp))
             Text(
-              text = "Email Sent Successfully! 🚀",
+              text = "Email Dispatched to Server! 🚀",
               style = MaterialTheme.typography.titleMedium,
               fontWeight = FontWeight.Bold,
               color = Color(0xFF15803D)
@@ -148,16 +164,99 @@ fun SendProgressDialog(
               style = MaterialTheme.typography.bodyMedium,
               color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-            if (sendState.messageId != null) {
-              Spacer(modifier = Modifier.height(6.dp))
+
+            // Self-Send or Destination Guidance Box
+            if (sendState.isSelfSend) {
+              Spacer(modifier = Modifier.height(12.dp))
+              Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = Color(0xFFFEF3C7),
+                shape = RoundedCornerShape(12.dp),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFFDE68A))
+              ) {
+                Column(modifier = Modifier.padding(12.dp)) {
+                  Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFFB45309), modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text("Sent to yourself (${sendState.recipient})?", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF92400E))
+                  }
+                  Spacer(modifier = Modifier.height(4.dp))
+                  Text(
+                    "In Gmail, messages sent from your own account to your own account are saved in your 'Sent' and 'All Mail' folders (or inside an existing thread) rather than an unread Inbox notification. Check your 'Sent' folder in Gmail!",
+                    fontSize = 11.sp,
+                    color = Color(0xFF78350F),
+                    lineHeight = 15.sp
+                  )
+                }
+              }
+            } else if (sendState.recipient.isNotBlank()) {
+              Spacer(modifier = Modifier.height(8.dp))
               Text(
-                text = "ID: ${sendState.messageId}",
-                fontFamily = FontFamily.Monospace,
+                text = "Recipient: ${sendState.recipient} • Check Spam/Promotions if not visible in Primary Inbox.",
                 fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
               )
             }
-            Spacer(modifier = Modifier.height(20.dp))
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Action: Open Gmail directly to check Sent / Inbox
+            OutlinedButton(
+              onClick = {
+                val intent = Intent(Intent.ACTION_MAIN).apply {
+                  addCategory(Intent.CATEGORY_APP_EMAIL)
+                  flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                try {
+                  context.startActivity(intent)
+                } catch (_: Exception) {
+                  val webIntent = Intent(Intent.ACTION_VIEW, Uri.parse("https://mail.google.com"))
+                  context.startActivity(webIntent)
+                }
+              },
+              modifier = Modifier.fillMaxWidth().testTag("open_gmail_after_send_button"),
+              shape = RoundedCornerShape(12.dp)
+            ) {
+              Icon(Icons.Default.MailOutline, contentDescription = null, modifier = Modifier.size(16.dp))
+              Spacer(modifier = Modifier.width(8.dp))
+              Text("Open Gmail (Check Sent / Inbox)", fontSize = 12.sp)
+            }
+
+            // Expandable transmission logs
+            if (sendState.logs.isNotEmpty()) {
+              Spacer(modifier = Modifier.height(8.dp))
+              Text(
+                text = if (showLogs) "Hide Server Logs ▲" else "View Server Transmission Logs ▼",
+                fontSize = 11.sp,
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier
+                  .clickable { showLogs = !showLogs }
+                  .padding(4.dp)
+              )
+              if (showLogs) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Column(
+                  modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.Black.copy(alpha = 0.05f), RoundedCornerShape(10.dp))
+                    .padding(10.dp)
+                    .heightIn(max = 120.dp)
+                    .verticalScroll(rememberScrollState())
+                ) {
+                  sendState.logs.forEach { log ->
+                    Text(
+                      text = log,
+                      fontFamily = FontFamily.Monospace,
+                      fontSize = 10.sp,
+                      color = Color(0xFF334155)
+                    )
+                  }
+                }
+              }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
             Button(
               onClick = onDismiss,
               modifier = Modifier.fillMaxWidth().testTag("dismiss_success_button"),

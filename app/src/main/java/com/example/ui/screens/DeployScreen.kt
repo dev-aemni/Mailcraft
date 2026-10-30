@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.components.MailCraftFooter
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
@@ -885,6 +886,10 @@ fun DeployScreen(
         }
       }
       Spacer(modifier = Modifier.height(24.dp))
+    }
+
+    item {
+      MailCraftFooter(isDark = isDark)
     }
   }
 }

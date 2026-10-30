@@ -22,6 +22,7 @@ import com.example.model.SmtpSendResult
 import com.example.model.TemplatePresets
 import com.example.network.GmailSmtpClient
 import com.example.util.HtmlEmailGenerator
+import com.example.ai.AiAppAction
 import com.example.ai.AiChatMessage
 import com.example.ai.AiKeyProvider
 import com.example.ai.AiModelOption
@@ -50,7 +51,14 @@ enum class AppTab {
 sealed class SendState {
   object Idle : SendState()
   data class Sending(val logs: List<String> = emptyList()) : SendState()
-  data class Success(val message: String, val messageId: String?) : SendState()
+  data class Success(
+    val message: String,
+    val messageId: String?,
+    val recipient: String = "",
+    val senderEmail: String = "",
+    val isSelfSend: Boolean = false,
+    val logs: List<String> = emptyList()
+  ) : SendState()
   data class Error(val error: String, val logs: List<String> = emptyList()) : SendState()
 }
 
@@ -180,7 +188,43 @@ class MailCraftViewModel(application: Application) : AndroidViewModel(applicatio
   fun getCurrentProjectContextPrompt(): String {
     val currentCode = _customHtmlContent.value
     val assetNames = _attachments.value.map { "${it.fileName} (${it.sizeBytes / 1024}KB)" }
-    val templatesCount = customTemplates.value.size
+    val templates = customTemplates.value
+    val drafts = savedDrafts.value
+    val history = sentEmails.value
+    val currentSender = senderAccount.value
+    val activeTabName = _activeTab.value.name
+
+    val draftsSummary = if (drafts.isEmpty()) {
+      "No drafts currently saved in Room database."
+    } else {
+      drafts.mapIndexed { idx, d ->
+        val length = if (d.isCustomHtml) d.customHtml.length else d.blocksJson.length
+        val words = if (d.isCustomHtml) {
+          d.customHtml.split(Regex("\\s+")).count { it.isNotBlank() }
+        } else {
+          d.previewSnippet.split(Regex("\\s+")).count { it.isNotBlank() }
+        }
+        val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(d.updatedTimestamp))
+        """Draft #${idx + 1} [ID: ${d.id}]:
+  • Title: "${d.title}"
+  • Subject: "${d.subject.ifBlank { "(No subject)" }}"
+  • Recipient: "${d.recipient.ifBlank { "(None)" }}"
+  • Format: ${if (d.isCustomHtml) "Custom HTML" else "Visual Blocks"}
+  • Content Size: $length characters, ~$words words
+  • Preview Snippet: "${d.previewSnippet.take(120)}"
+  • Last Updated: $dateStr"""
+      }.joinToString("\n\n")
+    }
+
+    val historySummary = if (history.isEmpty()) {
+      "No emails sent yet."
+    } else {
+      history.take(6).mapIndexed { idx, h ->
+        val dateStr = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(h.sentTimestamp))
+        "• Sent #${idx + 1} [ID: ${h.id}]: To=${h.toEmail}, Subject=\"${h.subject}\", Status=${h.status}, Date=$dateStr"
+      }.joinToString("\n")
+    }
+
     val codePreview = if (currentCode.length > 5000) {
       currentCode.take(5000) + "\n...[code continued, ${currentCode.lines().size} lines total]"
     } else {
@@ -188,26 +232,142 @@ class MailCraftViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     return """
-You are MailCraft AI, with full real-time read and write access to the user's active code workplace.
+Developer & Project Identity:
+- Creator/Author: 2026 @dev-aemni
+- GitHub Issues & Feature Requests: https://github.com/dev-aemni/Mailcraft/issues
+- If the user asks for new features, updates, bug reports, or project information, cite © 2026 @dev-aemni and invite them to create an issue at https://github.com/dev-aemni/Mailcraft/issues.
 
-Project Directory Structure:
-├── index.html (Active Email Template, ${currentCode.lines().size} lines)
-├── assets/ (${assetNames.size} files: ${if (assetNames.isNotEmpty()) assetNames.joinToString(", ") else "none"})
-├── templates/ ($templatesCount saved Room database templates)
-└── variables/ ({{MyEmail}}, {{RecipientEmail}}, {{SenderName}}, {{Subject}})
+You are MailCraft AI, with FULL REAL-TIME AWARENESS AND DIRECT CONTROL of the entire application.
+You have direct read and control access to every single corner of our app:
+1. Active Screen / Workspace: $activeTabName
+2. Current Recipient: "${_recipientEmail.value}"
+3. Current Subject: "${_subject.value}"
+4. Sender Account: Email=${currentSender.email.ifBlank { "Not configured" }}, Name="${currentSender.displayName}", SMTP=${currentSender.smtpHost}:${currentSender.smtpPort}, HasAppPassword=${currentSender.appPassword.isNotBlank()}
+5. Attachments: ${if (assetNames.isNotEmpty()) assetNames.joinToString(", ") else "None"}
+6. Active HTML Workplace (index.html): ${currentCode.lines().size} lines, ${currentCode.length} chars
+
+Saved Room Database Drafts (${drafts.size} total):
+$draftsSummary
+
+Recent Sent History (${history.size} total):
+$historySummary
+
+Saved Custom Templates: ${templates.size} saved (${templates.map { it.title }.joinToString(", ").ifBlank { "none" }})
+
+APP CONTROL COMMANDS:
+You can control the app! When the user asks you to navigate, load a draft, change recipient/subject, check drafts, or apply code, you can execute commands by appending action tags to your answer:
+• To open/load a draft into editor: [ACTION: OPEN_DRAFT id=<draft_id>]
+• To switch app screens: [ACTION: SWITCH_TAB tab=COMPOSE|HTML_WORKSTATION|PREVIEW|DEPLOY|DRAFTS|HISTORY|TEMPLATES]
+• To set email subject: [ACTION: SET_SUBJECT text="..."]
+• To set recipient email: [ACTION: SET_RECIPIENT email="..."]
+• To load/update HTML code: [ACTION: SET_HTML]```html ... ```[/ACTION] (or include ```html ... ``` code fences)
+• To send a test email to the user's inbox: [ACTION: SEND_TEST]
+• To format the code: [ACTION: FORMAT_HTML]
+
+IMPORTANT EXAMPLE:
+If the user asks: "check my drafts .. which one is shortest that I can continue now", you MUST:
+1. Examine the Saved Room Database Drafts listed above.
+2. Compare their content size / character count.
+3. Clearly state the total drafts found and identify the shortest draft (with its ID, title, character count, and preview).
+4. Include [ACTION: OPEN_DRAFT id=<id>] so the app can load that draft directly for the user!
 
 Current Code in index.html:
 ```html
 $codePreview
 ```
+""".trimIndent()
+  }
 
-CRITICAL INSTRUCTIONS:
-- You can directly edit and modify the code.
-- Whenever the user asks you to write, edit, rewrite, fix, format, style, or enhance code:
-  Always provide the complete, updated HTML email code inside ```html ... ``` code fences.
-  The app allows the user to apply your code directly into their live workplace with 1 tap.
-- Always use responsive, bulletproof email HTML tables with inline CSS for maximum deliverability across Gmail, Outlook, and Apple Mail.
-    """.trimIndent()
+  fun parseAiActions(content: String): List<AiAppAction> {
+    val actions = mutableListOf<AiAppAction>()
+
+    // [ACTION: OPEN_DRAFT id=123]
+    val openDraftRegex = Regex("""\[ACTION:\s*OPEN_DRAFT\s+id=(\d+)\]""", RegexOption.IGNORE_CASE)
+    openDraftRegex.findAll(content).forEach { match ->
+      match.groupValues.getOrNull(1)?.toLongOrNull()?.let { id ->
+        val title = savedDrafts.value.find { it.id == id }?.title
+        actions.add(AiAppAction.OpenDraft(id, title))
+      }
+    }
+
+    // [ACTION: SWITCH_TAB tab=DRAFTS]
+    val switchTabRegex = Regex("""\[ACTION:\s*SWITCH_TAB\s+tab=([A-Za-z_]+)\]""", RegexOption.IGNORE_CASE)
+    switchTabRegex.findAll(content).forEach { match ->
+      match.groupValues.getOrNull(1)?.let { tabName ->
+        actions.add(AiAppAction.SwitchTab(tabName.uppercase()))
+      }
+    }
+
+    // [ACTION: SET_SUBJECT text="..."]
+    val setSubjectRegex = Regex("""\[ACTION:\s*SET_SUBJECT\s+text="([^"]+)"\]""", RegexOption.IGNORE_CASE)
+    setSubjectRegex.findAll(content).forEach { match ->
+      match.groupValues.getOrNull(1)?.let { text ->
+        actions.add(AiAppAction.SetSubject(text))
+      }
+    }
+
+    // [ACTION: SET_RECIPIENT email="..."]
+    val setRecipientRegex = Regex("""\[ACTION:\s*SET_RECIPIENT\s+email="([^"]+)"\]""", RegexOption.IGNORE_CASE)
+    setRecipientRegex.findAll(content).forEach { match ->
+      match.groupValues.getOrNull(1)?.let { email ->
+        actions.add(AiAppAction.SetRecipient(email))
+      }
+    }
+
+    // [ACTION: SEND_TEST]
+    if (content.contains("[ACTION: SEND_TEST]", ignoreCase = true)) {
+      actions.add(AiAppAction.SendTest())
+    }
+
+    // [ACTION: FORMAT_HTML]
+    if (content.contains("[ACTION: FORMAT_HTML]", ignoreCase = true)) {
+      actions.add(AiAppAction.FormatHtml)
+    }
+
+    return actions
+  }
+
+  fun executeAiAppAction(action: AiAppAction, onFeedback: ((String) -> Unit)? = null) {
+    when (action) {
+      is AiAppAction.OpenDraft -> {
+        val target = savedDrafts.value.find { it.id == action.id }
+        if (target != null) {
+          loadDraft(target)
+          onFeedback?.invoke("Loaded draft \"${target.title}\" into active workspace!")
+        } else {
+          onFeedback?.invoke("Draft #${action.id} not found.")
+        }
+      }
+      is AiAppAction.SwitchTab -> {
+        try {
+          val tab = AppTab.valueOf(action.tabName)
+          setActiveTab(tab)
+          onFeedback?.invoke("Switched to ${tab.name}")
+        } catch (_: Exception) {
+          onFeedback?.invoke("Unknown tab: ${action.tabName}")
+        }
+      }
+      is AiAppAction.SetSubject -> {
+        _subject.value = action.text
+        onFeedback?.invoke("Subject updated to: \"${action.text}\"")
+      }
+      is AiAppAction.SetRecipient -> {
+        _recipientEmail.value = action.email
+        onFeedback?.invoke("Recipient set to: ${action.email}")
+      }
+      is AiAppAction.SetHtml -> {
+        applyHtmlToWorkstation(action.html)
+        onFeedback?.invoke("HTML applied to Workstation!")
+      }
+      is AiAppAction.SendTest -> {
+        sendToMyInbox()
+        onFeedback?.invoke("Sending test to ${senderAccount.value.email}...")
+      }
+      is AiAppAction.FormatHtml -> {
+        formatCurrentCustomHtml()
+        onFeedback?.invoke("HTML formatted!")
+      }
+    }
   }
 
   fun sendAiChatMessage(userPrompt: String) {
@@ -228,12 +388,21 @@ CRITICAL INSTRUCTIONS:
       result.fold(
         onSuccess = { reply ->
           val extracted = aiService.extractCodeBlock(reply, "html")
+          val actions = parseAiActions(reply)
+          val displayContent = reply.replace(Regex("""\[ACTION:[^\]]+\]"""), "").trim()
+
           _aiChatMessages.value = _aiChatMessages.value + AiChatMessage(
             role = "assistant",
-            content = reply,
+            content = displayContent.ifBlank { reply },
             extractedCode = extracted,
-            isCodeHtml = extracted != null
+            isCodeHtml = extracted != null,
+            actions = actions
           )
+
+          // If a single navigation or draft load was found, auto-execute it!
+          if (actions.size == 1) {
+            executeAiAppAction(actions[0])
+          }
         },
         onFailure = { err ->
           val raw = err.localizedMessage.orEmpty()
@@ -793,7 +962,15 @@ Return the complete, updated HTML code inside ```html ... ``` code fences.
       val contentResolver = getApplication<Application>().contentResolver
       val result = GmailSmtpClient.sendEmail(message, contentResolver)
       if (result.success) {
-        _sendState.value = SendState.Success(result.message, result.messageId)
+        val isSelf = currentRecipient.equals(sender.email.trim(), ignoreCase = true)
+        _sendState.value = SendState.Success(
+          message = result.message,
+          messageId = result.messageId,
+          recipient = currentRecipient,
+          senderEmail = sender.email.trim(),
+          isSelfSend = isSelf,
+          logs = result.logs.map { it.message }
+        )
         settingsManager.addRecentRecipient(currentRecipient)
         _recentRecipients.value = settingsManager.getRecentRecipients()
 
@@ -907,52 +1084,42 @@ Return the complete, updated HTML code inside ```html ... ``` code fences.
       return
     }
     _recipientEmail.value = sender.email.trim()
+    val currentSubj = _subject.value
+    if (currentSubj.isBlank() || currentSubj.startsWith("Test Email")) {
+      val timeStamp = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.US).format(java.util.Date())
+      _subject.value = "Test Email ($timeStamp) ✨"
+    }
     sendEmail()
   }
 
   fun sendViaDeviceEmailApp(context: android.content.Context) {
     val currentMsg = getCurrentEmailMessage()
     val targetRecipient = if (_recipientEmail.value.isNotBlank()) _recipientEmail.value.trim() else senderAccount.value.email.trim()
-    val htmlBody = HtmlEmailGenerator.generateHtml(currentMsg)
     val plainBody = HtmlEmailGenerator.generatePlainText(currentMsg)
 
     try {
-      val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
-        type = "message/rfc822"
-        if (targetRecipient.isNotBlank()) {
-          putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(targetRecipient))
-        }
-        if (currentMsg.cc.isNotEmpty()) {
-          putExtra(android.content.Intent.EXTRA_CC, currentMsg.cc.toTypedArray())
-        }
-        if (currentMsg.bcc.isNotEmpty()) {
-          putExtra(android.content.Intent.EXTRA_BCC, currentMsg.bcc.toTypedArray())
-        }
+      val mailtoIntent = android.content.Intent(android.content.Intent.ACTION_SENDTO).apply {
+        data = android.net.Uri.parse("mailto:${targetRecipient.trim()}")
         putExtra(android.content.Intent.EXTRA_SUBJECT, currentMsg.subject)
         putExtra(android.content.Intent.EXTRA_TEXT, plainBody)
-        putExtra(android.content.Intent.EXTRA_HTML_TEXT, htmlBody)
-
-        // Attach files if any
-        if (currentMsg.attachments.isNotEmpty()) {
-          if (currentMsg.attachments.size == 1) {
-            val attUri = android.net.Uri.parse(currentMsg.attachments[0].uriString)
-            putExtra(android.content.Intent.EXTRA_STREAM, attUri)
-            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-          } else {
-            val uris = ArrayList<android.net.Uri>()
-            currentMsg.attachments.forEach { uris.add(android.net.Uri.parse(it.uriString)) }
-            action = android.content.Intent.ACTION_SEND_MULTIPLE
-            putParcelableArrayListExtra(android.content.Intent.EXTRA_STREAM, uris)
-            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
-          }
-        }
+        flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
       }
-
-      val chooser = android.content.Intent.createChooser(intent, "Dispatch Email via Inbox App:")
-      chooser.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-      context.startActivity(chooser)
-    } catch (e: Exception) {
-      android.widget.Toast.makeText(context, "Could not open email client: ${e.localizedMessage}", android.widget.Toast.LENGTH_LONG).show()
+      context.startActivity(android.content.Intent.createChooser(mailtoIntent, "Send via Email App"))
+    } catch (_: Exception) {
+      try {
+        val fallbackIntent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+          type = "message/rfc822"
+          if (targetRecipient.isNotBlank()) {
+            putExtra(android.content.Intent.EXTRA_EMAIL, arrayOf(targetRecipient))
+          }
+          putExtra(android.content.Intent.EXTRA_SUBJECT, currentMsg.subject)
+          putExtra(android.content.Intent.EXTRA_TEXT, plainBody)
+          flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(android.content.Intent.createChooser(fallbackIntent, "Send via Email App"))
+      } catch (e: Exception) {
+        android.widget.Toast.makeText(context, "Could not open email client: ${e.localizedMessage}", android.widget.Toast.LENGTH_LONG).show()
+      }
     }
   }
 

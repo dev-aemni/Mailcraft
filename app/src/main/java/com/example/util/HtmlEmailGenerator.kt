@@ -310,13 +310,47 @@ object HtmlEmailGenerator {
     }
   }
 
-  fun generatePlainText(message: EmailMessage): String {
+  fun generatePlainText(message: EmailMessage, evaluateVars: Boolean = true): String {
     val sb = StringBuilder()
     sb.appendLine("Subject: ${message.subject}")
     sb.appendLine("From: ${message.sender.displayName} <${message.sender.email}>")
     sb.appendLine("To: ${message.to.joinToString(", ")}")
     sb.appendLine("=".repeat(40))
     sb.appendLine()
+
+    if (!message.customHtml.isNullOrBlank()) {
+      val evaluatedHtml = if (evaluateVars) {
+        evaluateVariables(
+          content = message.customHtml,
+          senderEmail = message.sender.email,
+          recipientEmail = message.to.firstOrNull() ?: "",
+          appPassword = message.sender.appPassword,
+          senderName = message.sender.displayName,
+          subject = message.subject
+        )
+      } else {
+        message.customHtml
+      }
+      val textOnly = evaluatedHtml
+        .replace(Regex("<style[\\s\\S]*?</style>", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("<script[\\s\\S]*?</script>", RegexOption.IGNORE_CASE), "")
+        .replace(Regex("<br\\s*/?>", RegexOption.IGNORE_CASE), "\n")
+        .replace(Regex("</p>", RegexOption.IGNORE_CASE), "\n\n")
+        .replace(Regex("</tr>", RegexOption.IGNORE_CASE), "\n")
+        .replace(Regex("</li>", RegexOption.IGNORE_CASE), "\n")
+        .replace(Regex("<[^>]*>"), " ")
+        .replace("&nbsp;", " ")
+        .replace("&amp;", "&")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .lines()
+        .map { it.trim() }
+        .filter { it.isNotBlank() }
+        .joinToString("\n")
+      sb.appendLine(textOnly)
+      return sb.toString()
+    }
 
     for (block in message.blocks) {
       when (block) {

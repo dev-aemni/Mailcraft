@@ -14,18 +14,8 @@ class SettingsManager(context: Context) {
   val senderAccount: StateFlow<SenderAccount> = _senderAccount.asStateFlow()
 
   fun loadSenderAccount(): SenderAccount {
-    var savedEmail = prefs.getString("sender_email", "") ?: ""
-    // Ensure user's private email is never returned as default if previously cached
-    if (savedEmail.equals("aemniacc@gmail.com", ignoreCase = true)) {
-      savedEmail = ""
-      prefs.edit().putString("sender_email", "").apply()
-    }
-
-    var savedName = prefs.getString("sender_display_name", "") ?: ""
-    if (savedName.equals("Aemni", ignoreCase = true)) {
-      savedName = ""
-      prefs.edit().putString("sender_display_name", "").apply()
-    }
+    val savedEmail = prefs.getString("sender_email", "") ?: ""
+    val savedName = prefs.getString("sender_display_name", "") ?: ""
 
     return SenderAccount(
       email = savedEmail,

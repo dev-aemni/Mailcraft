@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import com.example.ui.components.MailCraftFooter
 import android.text.format.DateUtils
 import android.widget.Toast
 import androidx.compose.foundation.background
@@ -410,6 +411,10 @@ fun DraftsScreen(viewModel: MailCraftViewModel) {
           }
         }
       }
+    }
+
+    item {
+      MailCraftFooter(isDark = isDark)
     }
   }
 }
