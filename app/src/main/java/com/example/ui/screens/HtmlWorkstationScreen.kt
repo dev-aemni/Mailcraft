@@ -3,6 +3,8 @@ package com.example.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Toast
@@ -2111,6 +2113,27 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                 onClick = {
                   showMenuDropdown = false
                   viewModel.sendEmail()
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("🌐 Website: dev-aemni.github.io/Mailcraft", color = Color(0xFF0284C7), fontSize = 12.sp) },
+                onClick = {
+                  showMenuDropdown = false
+                  try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://dev-aemni.github.io/Mailcraft/"))) } catch (_: Exception) {}
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("📖 Help Guide: dev-aemni.github.io/Mailcraft/help", color = Color(0xFF059669), fontSize = 12.sp) },
+                onClick = {
+                  showMenuDropdown = false
+                  try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://dev-aemni.github.io/Mailcraft/help/"))) } catch (_: Exception) {}
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("💡 Request Feature / Issues (2026 @dev-aemni)", color = Color(0xFF7C3AED), fontWeight = FontWeight.Bold, fontSize = 12.sp) },
+                onClick = {
+                  showMenuDropdown = false
+                  try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dev-aemni/Mailcraft/issues"))) } catch (_: Exception) {}
                 }
               )
             }

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Page Not Found | Dev Aemni</title>
+
+    <!-- Instant redirection to custom error page -->
+    <script>
+        (function() {
+            var pathname = window.location.pathname;
+            var search = window.location.search;
+            var isMailcraft = pathname.startsWith('/Mailcraft');
+            var errorBase = isMailcraft ? '/Mailcraft/error/' : '/error/';
+            // Only redirect if not already on /error/
+            if (!pathname.includes('/error')) {
+                var target = errorBase + '?code=404&src=' + encodeURIComponent(pathname + search);
+                window.location.replace(target);
+            }
+        })();
+    </script>
+    <meta http-equiv="refresh" content="0; url=/Mailcraft/error/?code=404">
+
+    <!-- Google Fonts Fallback -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chewy&family=Changa+One:ital@0;1&family=Playwrite+IT+Trad:wght@100..400&display=swap" rel="stylesheet">
+
+    <style>
+        /* Custom Font Definitions */
+        @font-face {
+            font-family: 'ChangaOneLocal';
+            src: url('/fonts/ChangaOne-Regular.ttf') format('truetype');
+        }
+
+        @font-face {
+            font-family: 'PlaywriteLocal';
+            src: url('/fonts/Playwrite_IT_Trad/static/PlaywriteITTrad-Regular.ttf') format('truetype');
+        }
+
+        * {
+            margin: 0px;
+            padding: 0px;
+            box-sizing: border-box;
+            background-color: #ecf0f3;
+            font-family: 'ChangaOneLocal', 'Changa One', sans-serif;
+            outline: none;
+        }
+
+        body {
+            background-color: #ecf0f3;
+            color: rgb(110, 115, 125);
+            min-height: 100vh;
+            padding: 25px 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 650px;
+            width: 100%;
+            text-align: center;
+        }
+
+        h1, .home-btn {
+            font-family: 'Chewy', cursive, sans-serif;
+            font-weight: normal;
+        }
+
+        /* Neumorphic Error Card */
+        .neu-card {
+            background-color: #ecf0f3;
+            padding: 40px 25px;
+            border-radius: 30px;
+            box-shadow: -5px -5px 12px #ffffff, 5px 5px 12px rgba(0, 0, 0, 0.16);
+            margin-bottom: 30px;
+        }
+
+        .error-code {
+            font-size: 5.5rem;
+            color: rgb(60, 65, 75);
+            line-height: 1;
+            margin-bottom: 10px;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.15), -3px -3px 6px #ffffff;
+            font-family: 'Chewy', cursive, sans-serif;
+        }
+
+        h1 {
+            font-size: 2.2rem;
+            color: rgb(60, 65, 75);
+            margin-bottom: 12px;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1), -1px -1px 2px #ffffff;
+        }
+
+        p {
+            color: rgb(120, 125, 135);
+            font-size: 1rem;
+            margin-bottom: 25px;
+            font-family: 'ChangaOneLocal', 'Changa One', sans-serif;
+        }
+
+        .home-btn {
+            display: inline-block;
+            background-color: #ecf0f3;
+            padding: 12px 28px;
+            border-radius: 30px;
+            box-shadow: -4px -4px 10px #ffffff, 4px 4px 10px rgba(0, 0, 0, 0.16);
+            color: rgb(60, 65, 75);
+            text-decoration: none;
+            font-size: 1.2rem;
+            transition: all 0.2s ease;
+        }
+
+        .home-btn:active {
+            box-shadow: inset -3px -3px 8px #ffffff, inset 3px 3px 8px rgba(0, 0, 0, 0.16);
+        }
+
+        /* Footer */
+        footer {
+            background-color: #ecf0f3;
+            padding: 20px;
+            border-radius: 30px;
+            box-shadow: -5px -5px 12px #ffffff, 5px 5px 12px rgba(0, 0, 0, 0.16);
+            width: 100%;
+            color: rgb(120, 125, 135);
+            font-size: 0.85rem;
+        }
+
+        footer p, footer nav, footer nav a {
+            font-family: 'PlaywriteLocal', 'Playwrite IT Trad', cursive, sans-serif !important;
+        }
+
+        footer nav {
+            margin-top: 8px;
+        }
+
+        footer nav a {
+            color: rgb(80, 85, 95);
+            text-decoration: none;
+            margin: 0 8px;
+        }
+
+        footer nav a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="neu-card">
+            <div class="error-code" id="error-code">404</div>
+            <h1 id="error-title">Page Not Found</h1>
+            <p id="error-desc">The requested endpoint path does not exist or has been moved.</p>
+            <a href="/Mailcraft/" class="home-btn" id="home-btn">Return to Home</a>
+        </div>
+
+        <footer>
+            <p>&copy; 2026 Dev Aemni. All rights reserved.</p>
+            <nav>
+                <a href="/Mailcraft/" id="footer-home">Home</a> • 
+                <a href="/Mailcraft/help/">Help &amp; Docs</a> • 
+                <a href="https://github.com/dev-aemni/Mailcraft/issues">Report Issue</a>
+            </nav>
+        </footer>
+    </div>
+
+    <!-- Dynamic Error Resolver Script -->
+    <script>
+        const errorMap = {
+            "400": { title: "Bad Request", desc: "The server could not understand the request due to invalid syntax." },
+            "401": { title: "Unauthorized", desc: "Authentication is required to access this resource." },
+            "403": { title: "Access Forbidden", desc: "You do not have permission to view or access this directory." },
+            "404": { title: "Page Not Found", desc: "The requested endpoint path does not exist or has been moved." },
+            "408": { title: "Request Timeout", desc: "The server timed out waiting for the request." },
+            "429": { title: "Too Many Requests", desc: "You have sent too many requests in a given amount of time." },
+            "500": { title: "Internal Server Error", desc: "The server encountered an unexpected condition that prevented it from fulfilling the request." },
+            "502": { title: "Bad Gateway", desc: "The server received an invalid response from an upstream server." },
+            "503": { title: "Service Unavailable", desc: "The server is currently unavailable or undergoing maintenance." },
+            "504": { title: "Gateway Timeout", desc: "The upstream server failed to send a response in time." }
+        };
+
+        // Parse code from URL search param or URL path (e.g., /error/?code=500 or /error/500/)
+        const urlParams = new URLSearchParams(window.location.search);
+        let code = urlParams.get('code');
+
+        if (!code) {
+            const pathParts = window.location.pathname.split('/').filter(Boolean);
+            const lastPart = pathParts[pathParts.length - 1];
+            if (errorMap[lastPart]) {
+                code = lastPart;
+            }
+        }
+
+        if (code && errorMap[code]) {
+            document.getElementById('error-code').textContent = code;
+            document.getElementById('error-title').textContent = errorMap[code].title;
+            document.getElementById('error-desc').textContent = errorMap[code].desc;
+            document.title = `${code} - ${errorMap[code].title} | Dev Aemni`;
+        }
+
+        // Adjust home links for root vs /Mailcraft repo path
+        if (!window.location.pathname.startsWith('/Mailcraft')) {
+            var homeBtn = document.getElementById('home-btn');
+            if (homeBtn) homeBtn.href = '/';
+            var footerHome = document.getElementById('footer-home');
+            if (footerHome) footerHome.href = '/';
+        }
+    </script>
+</body>
+</html>

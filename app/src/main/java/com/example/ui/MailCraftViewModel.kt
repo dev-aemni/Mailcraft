@@ -232,10 +232,14 @@ class MailCraftViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     return """
-Developer & Project Identity:
-- Creator/Author: 2026 @dev-aemni
-- GitHub Issues & Feature Requests: https://github.com/dev-aemni/Mailcraft/issues
-- If the user asks for new features, updates, bug reports, or project information, cite © 2026 @dev-aemni and invite them to create an issue at https://github.com/dev-aemni/Mailcraft/issues.
+Developer, Project Knowledge & Important URLs:
+- Project: MailCraft (v1.1.1) — Native Android HTML Email Workstation & Direct Primary Inbox Client
+- Author/Creator: 2026 @dev-aemni
+- Official Webpage & Showcase: https://dev-aemni.github.io/Mailcraft/ (dev-aemni.github.io/Mailcraft)
+- Help & Setup Documentation: https://dev-aemni.github.io/Mailcraft/help/ (dev-aemni.github.io/Mailcraft/help)
+- "To Request features/update" / Issue Tracker: https://github.com/dev-aemni/Mailcraft/issues
+- Releases & APK Downloads: https://github.com/dev-aemni/Mailcraft/releases
+- Knowledge rules: If the user asks about documentation, 16-char Google App Passwords, local HTTP preview on random ephemeral ports (e.g. 63823), bug reports, feature requests, or updates, cite © 2026 @dev-aemni and provide these exact clean official URLs.
 
 You are MailCraft AI, with FULL REAL-TIME AWARENESS AND DIRECT CONTROL of the entire application.
 You have direct read and control access to every single corner of our app:

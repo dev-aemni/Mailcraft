@@ -309,14 +309,12 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
       shape = RoundedCornerShape(12.dp),
       border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF2C3240) else Color(0xFFC7D2FE))
     ) {
-      Row(
-        modifier = Modifier
-          .fillMaxWidth()
-          .padding(horizontal = 12.dp, vertical = 6.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-      ) {
-        Column(modifier = Modifier.weight(1f)) {
+      Column(modifier = Modifier.padding(10.dp)) {
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
           Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
               text = "2026 @dev-aemni",
@@ -332,22 +330,40 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
               color = Color(0xFF10B981)
             )
           }
-          Text(
-            text = "To request features/update: create an issue at github.com/dev-aemni/Mailcraft/issues",
-            fontSize = 10.sp,
-            color = textSecondary,
-            lineHeight = 13.sp
-          )
+          Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(
+              onClick = {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://dev-aemni.github.io/Mailcraft/"))
+                try { context.startActivity(intent) } catch (_: Exception) {}
+              },
+              contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+            ) {
+              Text("Web ↗", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
+            }
+            TextButton(
+              onClick = {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dev-aemni/Mailcraft/issues"))
+                try { context.startActivity(intent) } catch (_: Exception) {}
+              },
+              contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+            ) {
+              Text("Issues ↗", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = NeuAccent)
+            }
+          }
         }
-        TextButton(
-          onClick = {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dev-aemni/Mailcraft/issues"))
-            try { context.startActivity(intent) } catch (_: Exception) {}
-          },
-          contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
-        ) {
-          Text("Issues ↗", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = NeuAccent)
-        }
+        Spacer(modifier = Modifier.height(3.dp))
+        Text(
+          text = "Site: dev-aemni.github.io/Mailcraft • Docs: dev-aemni.github.io/Mailcraft/help",
+          fontSize = 9.5.sp,
+          color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
+          fontFamily = FontFamily.Monospace
+        )
+        Text(
+          text = "\"To Request features/update\" create an issue at github.com/dev-aemni/Mailcraft/issues",
+          fontSize = 9.5.sp,
+          color = textSecondary,
+          lineHeight = 13.sp
+        )
       }
     }
 

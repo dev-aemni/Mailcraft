@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>404 - Page Not Found | Dev Aemni</title>
+
+    <script>
+        (function() {
+            var pathname = window.location.pathname;
+            var search = window.location.search;
+            var isMailcraft = pathname.startsWith('/Mailcraft');
+            var errorBase = isMailcraft ? '/Mailcraft/error/' : '/error/';
+            if (!pathname.includes('/error')) {
+                var target = errorBase + '?code=404&src=' + encodeURIComponent(pathname + search);
+                window.location.replace(target);
+            }
+        })();
+    </script>
+    <meta http-equiv="refresh" content="0; url=/Mailcraft/error/?code=404">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Chewy&family=Changa+One:ital@0;1&family=Playwrite+IT+Trad:wght@100..400&display=swap" rel="stylesheet">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; background-color: #ecf0f3; font-family: 'ChangaOneLocal', 'Changa One', sans-serif; outline: none; }
+        body { background-color: #ecf0f3; color: rgb(110, 115, 125); min-height: 100vh; padding: 25px 15px; display: flex; flex-direction: column; justify-content: center; align-items: center; line-height: 1.6; }
+        .container { max-width: 650px; width: 100%; text-align: center; }
+        h1, .home-btn { font-family: 'Chewy', cursive, sans-serif; font-weight: normal; }
+        .neu-card { background-color: #ecf0f3; padding: 40px 25px; border-radius: 30px; box-shadow: -5px -5px 12px #ffffff, 5px 5px 12px rgba(0, 0, 0, 0.16); margin-bottom: 30px; }
+        .error-code { font-size: 5.5rem; color: rgb(60, 65, 75); line-height: 1; margin-bottom: 10px; text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.15), -3px -3px 6px #ffffff; font-family: 'Chewy', cursive, sans-serif; }
+        h1 { font-size: 2.2rem; color: rgb(60, 65, 75); margin-bottom: 12px; text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.1), -1px -1px 2px #ffffff; }
+        p { color: rgb(120, 125, 135); font-size: 1rem; margin-bottom: 25px; font-family: 'ChangaOneLocal', 'Changa One', sans-serif; }
+        .home-btn { display: inline-block; background-color: #ecf0f3; padding: 12px 28px; border-radius: 30px; box-shadow: -4px -4px 10px #ffffff, 4px 4px 10px rgba(0, 0, 0, 0.16); color: rgb(60, 65, 75); text-decoration: none; font-size: 1.2rem; transition: all 0.2s ease; }
+        .home-btn:active { box-shadow: inset -3px -3px 8px #ffffff, inset 3px 3px 8px rgba(0, 0, 0, 0.16); }
+        footer { background-color: #ecf0f3; padding: 20px; border-radius: 30px; box-shadow: -5px -5px 12px #ffffff, 5px 5px 12px rgba(0, 0, 0, 0.16); width: 100%; color: rgb(120, 125, 135); font-size: 0.85rem; }
+        footer p, footer nav, footer nav a { font-family: 'PlaywriteLocal', 'Playwrite IT Trad', cursive, sans-serif !important; }
+        footer nav { margin-top: 8px; }
+        footer nav a { color: rgb(80, 85, 95); text-decoration: none; margin: 0 8px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="neu-card">
+            <div class="error-code" id="error-code">404</div>
+            <h1 id="error-title">Page Not Found</h1>
+            <p id="error-desc">The requested endpoint path does not exist or has been moved.</p>
+            <a href="/Mailcraft/" class="home-btn" id="home-btn">Return to Home</a>
+        </div>
+        <footer>
+            <p>&copy; 2026 Dev Aemni. All rights reserved.</p>
+            <nav>
+                <a href="/Mailcraft/" id="footer-home">Home</a> • 
+                <a href="/Mailcraft/help/">Help &amp; Docs</a> • 
+                <a href="https://github.com/dev-aemni/Mailcraft/issues">Report Issue</a>
+            </nav>
+        </footer>
+    </div>
+</body>
+</html>
