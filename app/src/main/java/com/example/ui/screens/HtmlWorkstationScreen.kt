@@ -3,8 +3,13 @@ package com.example.ui.screens
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.viewinterop.AndroidView
+import com.example.network.LocalPreviewServer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -179,6 +184,26 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
 
   val customTemplates by viewModel.customTemplates.collectAsState()
   var showPreviewModal by remember { mutableStateOf(false) }
+  val previewServer = remember { LocalPreviewServer() }
+  var activePreviewPort by remember { mutableStateOf(0) }
+
+  // Ephemeral random-port local HTTP server for real-time index.html preview
+  LaunchedEffect(showPreviewModal) {
+    if (showPreviewModal) {
+      val htmlToServe = textFieldValue.text
+      activePreviewPort = previewServer.start { htmlToServe }
+    } else {
+      previewServer.stop()
+      activePreviewPort = 0
+    }
+  }
+
+  // Ensure server socket closes immediately when workstation leaves or preview closes
+  DisposableEffect(Unit) {
+    onDispose {
+      previewServer.stop()
+    }
+  }
   var showClearConfirmDialog by remember { mutableStateOf(false) }
   var showTemplatesModal by remember { mutableStateOf(false) }
   var showVariablesModal by remember { mutableStateOf(false) }
@@ -328,13 +353,13 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFEF4444), modifier = Modifier.size(24.dp))
           Spacer(modifier = Modifier.width(8.dp))
-          Text("Clear Page?", fontWeight = FontWeight.Bold, color = Color(0xFF1E293B))
+          Text("Clear Page?", fontWeight = FontWeight.Bold, color = wsTextColor)
         }
       },
       text = {
         Text(
           "Are you sure you want to clear all code on this page? This action cannot be undone.",
-          color = Color(0xFF475569),
+          color = wsSubtextColor,
           lineHeight = 20.sp
         )
       },
@@ -369,7 +394,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
       dismissButton = {
         OutlinedButton(
           onClick = { showClearConfirmDialog = false },
-          colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF64748B)),
+          colors = ButtonDefaults.outlinedButtonColors(contentColor = if (isDark) Color(0xFFE2E8F0) else Color(0xFF64748B)),
           modifier = Modifier.testTag("confirm_clear_cancel_button")
         ) {
           Text("CANCEL")
@@ -387,7 +412,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
         Row(verticalAlignment = Alignment.CenterVertically) {
           Icon(Icons.Default.Info, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(24.dp))
           Spacer(modifier = Modifier.width(8.dp))
-          Text("Template Variables (i)", fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B))
+          Text("Template Variables (i)", fontWeight = FontWeight.Bold, color = wsTextColor)
         }
       },
       text = {
@@ -398,7 +423,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
           Text(
             "Insert these dynamic placeholders into your HTML or JavaScript code. MailCraft auto-replaces them when previewing or sending!",
             fontSize = 12.sp,
-            color = Color(0xFF475569),
+            color = wsSubtextColor,
             lineHeight = 18.sp
           )
 
@@ -414,8 +439,8 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
           varList.forEach { (tag, value, desc) ->
             Card(
               shape = RoundedCornerShape(10.dp),
-              colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-              border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+              colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF26292E) else Color(0xFFF8FAFC)),
+              border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF3B4048) else Color(0xFFE2E8F0)),
               modifier = Modifier.fillMaxWidth()
             ) {
               Column(modifier = Modifier.padding(10.dp)) {
@@ -424,7 +449,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                   horizontalArrangement = Arrangement.SpaceBetween,
                   verticalAlignment = Alignment.CenterVertically
                 ) {
-                  Text(tag, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = Color(0xFF6D28D9), fontSize = 13.sp)
+                  Text(tag, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold, color = if (isDark) Color(0xFFA78BFA) else Color(0xFF6D28D9), fontSize = 13.sp)
                   Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     TextButton(
                       onClick = {
@@ -434,7 +459,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                       },
                       contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                     ) {
-                      Text("+ Insert", fontSize = 11.sp, color = Color(0xFF059669))
+                      Text("+ Insert", fontSize = 11.sp, color = Color(0xFF10B981))
                     }
                     TextButton(
                       onClick = {
@@ -444,13 +469,13 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                       },
                       contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
                     ) {
-                      Text("Copy", fontSize = 11.sp, color = Color(0xFF2563EB))
+                      Text("Copy", fontSize = 11.sp, color = if (isDark) Color(0xFF60A5FA) else Color(0xFF2563EB))
                     }
                   }
                 }
                 Spacer(modifier = Modifier.height(2.dp))
-                Text("Value: $value", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = Color(0xFF334155))
-                Text(desc, fontSize = 10.sp, color = Color(0xFF64748B))
+                Text("Value: $value", fontSize = 11.sp, fontFamily = FontFamily.Monospace, color = wsTextColor)
+                Text(desc, fontSize = 10.sp, color = wsSubtextColor)
               }
             }
           }
@@ -474,25 +499,25 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
       containerColor = wsModalBg,
       title = {
         Row(verticalAlignment = Alignment.CenterVertically) {
-          Text("Save Internal Template 💾", fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B))
+          Text("Save Internal Template 💾", fontWeight = FontWeight.Bold, color = wsTextColor)
         }
       },
       text = {
         Column {
           Text(
             "Save your current HTML code into the internal template library.",
-            color = Color(0xFF475569),
+            color = wsSubtextColor,
             fontSize = 12.sp
           )
           Spacer(modifier = Modifier.height(12.dp))
           OutlinedTextField(
             value = newTemplateName,
             onValueChange = { newTemplateName = it },
-            label = { Text("Template Name", color = Color(0xFF64748B)) },
-            placeholder = { Text("e.g. Purple Promo Newsletter", color = Color(0xFF94A3B8)) },
+            label = { Text("Template Name", color = wsSubtextColor) },
+            placeholder = { Text("e.g. Purple Promo Newsletter", color = wsSubtextColor) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
-            textStyle = TextStyle(color = Color(0xFF1E1B4B))
+            textStyle = TextStyle(color = wsTextColor)
           )
           Spacer(modifier = Modifier.height(12.dp))
           Text("Select Icon / Emoji:", color = Color(0xFF64748B), fontSize = 11.sp)
@@ -577,12 +602,12 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
             Row(verticalAlignment = Alignment.CenterVertically) {
               Icon(Icons.Default.FolderOpen, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(22.dp))
               Spacer(modifier = Modifier.width(8.dp))
-              Text("Local Assets & File Importer", color = Color(0xFF1E1B4B), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+              Text("Local Assets & File Importer", color = wsTextColor, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
-            Text("Import device images, PDFs, HTML files & insert email-ready HTML", color = Color(0xFF64748B), fontSize = 12.sp)
+            Text("Import device images, PDFs, HTML files & insert email-ready HTML", color = wsSubtextColor, fontSize = 12.sp)
           }
           IconButton(onClick = { showAssetsModal = false }) {
-            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF64748B))
+            Icon(Icons.Default.Close, contentDescription = "Close", tint = wsSubtextColor)
           }
         }
 
@@ -626,8 +651,8 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
               // 1. Image Import Card
               Card(
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF26292E) else Color(0xFFF8FAFC)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF3B4048) else Color(0xFFE2E8F0)),
                 modifier = Modifier.fillMaxWidth()
               ) {
                 Row(
@@ -640,15 +665,15 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                       modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFEDE9FE)),
+                        .background(if (isDark) Color(0xFF3B2E68) else Color(0xFFEDE9FE)),
                       contentAlignment = Alignment.Center
                     ) {
                       Icon(Icons.Default.Image, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(22.dp))
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                      Text("Import Image / Icon", fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B), fontSize = 14.sp)
-                      Text("PNG, JPG, SVG, WebP. Auto-converts to Base64 & inserts <img> tag.", color = Color(0xFF64748B), fontSize = 11.sp)
+                      Text("Import Image / Icon", fontWeight = FontWeight.Bold, color = wsTextColor, fontSize = 14.sp)
+                      Text("PNG, JPG, SVG, WebP. Auto-converts to Base64 & inserts <img> tag.", color = wsSubtextColor, fontSize = 11.sp)
                     }
                   }
                   Button(
@@ -666,8 +691,8 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
               // 2. PDF Document Import Card
               Card(
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF26292E) else Color(0xFFF8FAFC)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF3B4048) else Color(0xFFE2E8F0)),
                 modifier = Modifier.fillMaxWidth()
               ) {
                 Row(
@@ -680,15 +705,15 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                       modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFFEE2E2)),
+                        .background(if (isDark) Color(0xFF451A1A) else Color(0xFFFEE2E2)),
                       contentAlignment = Alignment.Center
                     ) {
                       Icon(Icons.Default.PictureAsPdf, contentDescription = null, tint = Color(0xFFDC2626), modifier = Modifier.size(22.dp))
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                      Text("Import PDF File", fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B), fontSize = 14.sp)
-                      Text("Attaches to email & inserts a styled download badge into code.", color = Color(0xFF64748B), fontSize = 11.sp)
+                      Text("Import PDF File", fontWeight = FontWeight.Bold, color = wsTextColor, fontSize = 14.sp)
+                      Text("Attaches to email & inserts a styled download badge into code.", color = wsSubtextColor, fontSize = 11.sp)
                     }
                   }
                   Button(
@@ -706,8 +731,8 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
               // 3. Local HTML File Fetch Card
               Card(
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF26292E) else Color(0xFFF8FAFC)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF3B4048) else Color(0xFFE2E8F0)),
                 modifier = Modifier.fillMaxWidth()
               ) {
                 Row(
@@ -720,15 +745,15 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                       modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFFE0F2FE)),
+                        .background(if (isDark) Color(0xFF1E3A5F) else Color(0xFFE0F2FE)),
                       contentAlignment = Alignment.Center
                     ) {
                       Icon(Icons.Default.InsertDriveFile, contentDescription = null, tint = Color(0xFF0284C7), modifier = Modifier.size(22.dp))
                     }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                      Text("Fetch Local HTML File", fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B), fontSize = 14.sp)
-                      Text("Load any .html file from device directly into this workstation.", color = Color(0xFF64748B), fontSize = 11.sp)
+                      Text("Fetch Local HTML File", fontWeight = FontWeight.Bold, color = wsTextColor, fontSize = 14.sp)
+                      Text("Load any .html file from device directly into this workstation.", color = wsSubtextColor, fontSize = 11.sp)
                     }
                   }
                   Button(
@@ -752,15 +777,15 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                 modifier = Modifier
                   .fillMaxWidth()
                   .height(180.dp)
-                  .background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
-                  .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp)),
+                  .background(if (isDark) Color(0xFF26292E) else Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
+                  .border(1.dp, if (isDark) Color(0xFF3B4048) else Color(0xFFE2E8F0), RoundedCornerShape(12.dp)),
                 contentAlignment = Alignment.Center
               ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                   Text("📎", fontSize = 32.sp)
                   Spacer(modifier = Modifier.height(8.dp))
-                  Text("No attachments attached yet", fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B), fontSize = 14.sp)
-                  Text("Select an image or PDF from the File Import tab to attach.", color = Color(0xFF64748B), fontSize = 11.sp)
+                  Text("No attachments attached yet", fontWeight = FontWeight.Bold, color = wsTextColor, fontSize = 14.sp)
+                  Text("Select an image or PDF from the File Import tab to attach.", color = wsSubtextColor, fontSize = 11.sp)
                 }
               }
             } else {
@@ -771,8 +796,8 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                 items(attachments, key = { it.id }) { att ->
                   Card(
                     shape = RoundedCornerShape(10.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+                    colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF26292E) else Color(0xFFF8FAFC)),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF3B4048) else Color(0xFFE2E8F0)),
                     modifier = Modifier.fillMaxWidth()
                   ) {
                     Row(
@@ -784,8 +809,8 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                         Text(if (att.mimeType.contains("pdf")) "📄" else "🖼️", fontSize = 20.sp)
                         Spacer(modifier = Modifier.width(10.dp))
                         Column {
-                          Text(att.fileName, fontWeight = FontWeight.Bold, color = Color(0xFF1E1B4B), fontSize = 13.sp, maxLines = 1)
-                          Text("${att.mimeType} • ${att.formattedSize}", color = Color(0xFF64748B), fontSize = 11.sp)
+                          Text(att.fileName, fontWeight = FontWeight.Bold, color = wsTextColor, fontSize = 13.sp, maxLines = 1)
+                          Text("${att.mimeType} • ${att.formattedSize}", color = wsSubtextColor, fontSize = 11.sp)
                         }
                       }
                       IconButton(onClick = { viewModel.removeAttachment(att.id) }) {
@@ -807,10 +832,10 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                 .verticalScroll(rememberScrollState()),
               verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-              Text("Tap any icon or badge to insert responsive HTML snippet into code:", fontSize = 11.sp, color = Color(0xFF64748B))
+              Text("Tap any icon or badge to insert responsive HTML snippet into code:", fontSize = 11.sp, color = wsSubtextColor)
 
               // 1. Call to Action Button Snippets
-              Text("Action Buttons:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E1B4B))
+              Text("Action Buttons:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = wsTextColor)
               Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -839,7 +864,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
               }
 
               // 2. Feature Callout Cards
-              Text("Feature Callout Boxes:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E1B4B))
+              Text("Feature Callout Boxes:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = wsTextColor)
               Row(
                 modifier = Modifier.horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -868,7 +893,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
               }
 
               // 3. Emojis and Quick Icons
-              Text("Quick Emojis & Icon Badges:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E1B4B))
+              Text("Quick Emojis & Icon Badges:", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = wsTextColor)
               Row(
                 modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -879,8 +904,8 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                     modifier = Modifier
                       .size(42.dp)
                       .clip(RoundedCornerShape(8.dp))
-                      .background(Color(0xFFF1F5F9))
-                      .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(8.dp))
+                      .background(if (isDark) Color(0xFF2C313A) else Color(0xFFF1F5F9))
+                      .border(1.dp, if (isDark) Color(0xFF3E4451) else Color(0xFFE2E8F0), RoundedCornerShape(8.dp))
                       .clickable {
                         insertTextAtCursor(ic)
                         Toast.makeText(context, "Inserted $ic", Toast.LENGTH_SHORT).show()
@@ -921,12 +946,12 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
             Row(verticalAlignment = Alignment.CenterVertically) {
               Icon(Icons.Default.AutoAwesome, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(20.dp))
               Spacer(modifier = Modifier.width(8.dp))
-              Text("Email Templates", color = Color(0xFF1E1B4B), fontWeight = FontWeight.Bold, fontSize = 18.sp)
+              Text("Email Templates", color = wsTextColor, fontWeight = FontWeight.Bold, fontSize = 18.sp)
             }
-            Text("Load into editor or save your custom design", color = Color(0xFF64748B), fontSize = 12.sp)
+            Text("Load into editor or save your custom design", color = wsSubtextColor, fontSize = 12.sp)
           }
           IconButton(onClick = { showTemplatesModal = false }) {
-            Icon(Icons.Default.Close, contentDescription = "Close", tint = Color(0xFF64748B))
+            Icon(Icons.Default.Close, contentDescription = "Close", tint = wsSubtextColor)
           }
         }
 
@@ -960,16 +985,16 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
               modifier = Modifier
                 .fillMaxWidth()
                 .height(200.dp)
-                .background(Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
-                .border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
+                .background(if (isDark) Color(0xFF26292E) else Color(0xFFF8FAFC), RoundedCornerShape(12.dp))
+                .border(1.dp, if (isDark) Color(0xFF3B4048) else Color(0xFFE2E8F0), RoundedCornerShape(12.dp))
                 .padding(16.dp),
               contentAlignment = Alignment.Center
             ) {
               Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text("📄", fontSize = 32.sp)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("No saved internal templates yet", color = Color(0xFF1E1B4B), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                Text("Tap 'Save Current as Template' to store your custom designs here!", color = Color(0xFF64748B), fontSize = 11.sp)
+                Text("No saved internal templates yet", color = wsTextColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                Text("Tap 'Save Current as Template' to store your custom designs here!", color = wsSubtextColor, fontSize = 11.sp)
                 Spacer(modifier = Modifier.height(12.dp))
                 Button(
                   onClick = {
@@ -1000,8 +1025,8 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                       Toast.makeText(context, "Loaded \"${tpl.title}\"!", Toast.LENGTH_SHORT).show()
                     },
                   shape = RoundedCornerShape(12.dp),
-                  colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                  border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+                  colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF26292E) else Color(0xFFF8FAFC)),
+                  border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF3B4048) else Color(0xFFE2E8F0))
                 ) {
                   Row(
                     modifier = Modifier
@@ -1014,8 +1039,8 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                       Text(tpl.iconEmoji, fontSize = 24.sp)
                       Spacer(modifier = Modifier.width(12.dp))
                       Column {
-                        Text(tpl.title, color = Color(0xFF1E1B4B), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        Text(tpl.previewSnippet.ifBlank { "Custom saved template" }, color = Color(0xFF64748B), fontSize = 11.sp, maxLines = 1)
+                        Text(tpl.title, color = wsTextColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(tpl.previewSnippet.ifBlank { "Custom saved template" }, color = wsSubtextColor, fontSize = 11.sp, maxLines = 1)
                       }
                     }
                     IconButton(
@@ -1062,8 +1087,8 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                   }
                   .testTag("workstation_template_${template.id}"),
                 shape = RoundedCornerShape(12.dp),
-                colors = CardDefaults.cardColors(containerColor = Color(0xFFF8FAFC)),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0))
+                colors = CardDefaults.cardColors(containerColor = if (isDark) Color(0xFF26292E) else Color(0xFFF8FAFC)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF3B4048) else Color(0xFFE2E8F0))
               ) {
                 Row(
                   modifier = Modifier
@@ -1076,8 +1101,8 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                     Text(template.iconEmoji, fontSize = 24.sp)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
-                      Text(template.title, color = Color(0xFF1E1B4B), fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                      Text(template.description, color = Color(0xFF64748B), fontSize = 11.sp, maxLines = 1)
+                      Text(template.title, color = wsTextColor, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                      Text(template.description, color = wsSubtextColor, fontSize = 11.sp, maxLines = 1)
                     }
                   }
                   Icon(Icons.Default.ChevronRight, contentDescription = null, tint = Color(0xFF7C3AED), modifier = Modifier.size(20.dp))
@@ -1513,8 +1538,18 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
             }
             Spacer(modifier = Modifier.width(10.dp))
             Column {
-              Text("Live Email Preview", color = Color(0xFF1E1B4B), fontWeight = FontWeight.Bold, fontSize = 15.sp)
-              Text("Rendering index.html in real-time", color = Color(0xFF64748B), fontSize = 11.sp)
+              Text(
+                "Live Email Preview",
+                color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E1B4B),
+                fontWeight = FontWeight.Bold,
+                fontSize = 15.sp
+              )
+              Text(
+                if (activePreviewPort > 0) "http://127.0.0.1:$activePreviewPort/ • Ephemeral Port" else "Starting local HTTP server...",
+                color = if (activePreviewPort > 0) Color(0xFF10B981) else (if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)),
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace
+              )
             }
           }
 
@@ -1522,7 +1557,9 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
             OutlinedButton(
               onClick = { isPreviewMobileViewport = !isPreviewMobileViewport },
               modifier = Modifier.height(32.dp),
-              colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF1E1B4B))
+              colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E1B4B)
+              )
             ) {
               Icon(Icons.Default.Devices, contentDescription = null, modifier = Modifier.size(14.dp))
               Spacer(modifier = Modifier.width(4.dp))
@@ -1530,7 +1567,11 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
             }
             Spacer(modifier = Modifier.width(4.dp))
             IconButton(onClick = { showPreviewModal = false }) {
-              Icon(Icons.Default.Close, contentDescription = "Close Preview", tint = Color(0xFF64748B))
+              Icon(
+                Icons.Default.Close,
+                contentDescription = "Close Preview",
+                tint = if (isDark) Color(0xFFCBD5E1) else Color(0xFF64748B)
+              )
             }
           }
         }
@@ -1539,29 +1580,29 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
 
         val isDarkClient = clientDarkMode != ClientDarkMode.OFF
         val clientModalBg = when (clientDarkMode) {
-          ClientDarkMode.OFF -> Color(0xFFF1F5F9)
+          ClientDarkMode.OFF -> if (isDark) Color(0xFF131518) else Color(0xFFF1F5F9)
           ClientDarkMode.GMAIL -> Color(0xFF121212)
           ClientDarkMode.OUTLOOK -> Color(0xFF0F0F0F)
           ClientDarkMode.APPLE_MAIL -> Color(0xFF18181B)
         }
         val clientCardBg = when (clientDarkMode) {
-          ClientDarkMode.OFF -> Color.White
+          ClientDarkMode.OFF -> if (isDark) Color(0xFF1E2024) else Color.White
           ClientDarkMode.GMAIL -> Color(0xFF24242A)
           ClientDarkMode.OUTLOOK -> Color(0xFF141416)
           ClientDarkMode.APPLE_MAIL -> Color(0xFF1E1E22)
         }
         val clientBorder = when (clientDarkMode) {
-          ClientDarkMode.OFF -> Color(0xFFE2E8F0)
+          ClientDarkMode.OFF -> if (isDark) Color(0xFF2C3038) else Color(0xFFE2E8F0)
           ClientDarkMode.GMAIL -> Color(0xFF333338)
           ClientDarkMode.OUTLOOK -> Color(0xFF2E2E32)
           ClientDarkMode.APPLE_MAIL -> Color(0xFF3F3F46)
         }
         val clientTextColor = when (clientDarkMode) {
-          ClientDarkMode.OFF -> Color(0xFF0F172A)
+          ClientDarkMode.OFF -> if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
           else -> Color(0xFFF1F5F9)
         }
         val clientSubColor = when (clientDarkMode) {
-          ClientDarkMode.OFF -> Color(0xFF64748B)
+          ClientDarkMode.OFF -> if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
           else -> Color(0xFF94A3B8)
         }
 
@@ -1577,7 +1618,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
             text = "Client Sim:",
             fontSize = 11.sp,
             fontWeight = FontWeight.Bold,
-            color = Color(0xFF94A3B8)
+            color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
           )
           FilterChip(
             selected = clientDarkMode == ClientDarkMode.OFF,
@@ -1603,15 +1644,14 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
 
         Spacer(modifier = Modifier.height(10.dp))
 
-        // Rendered Canvas
+        // Rendered Canvas with local random-port HTTP server WebView
         Box(
           modifier = Modifier
             .weight(1f)
             .fillMaxWidth()
             .clip(RoundedCornerShape(12.dp))
             .background(clientModalBg)
-            .padding(12.dp)
-            .verticalScroll(rememberScrollState()),
+            .padding(if (isPreviewMobileViewport) 6.dp else 10.dp),
           contentAlignment = Alignment.TopCenter
         ) {
           Card(
@@ -1619,24 +1659,25 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
             colors = CardDefaults.cardColors(containerColor = clientCardBg),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
             modifier = Modifier
-              .widthIn(max = if (isPreviewMobileViewport) 380.dp else 600.dp)
-              .fillMaxWidth()
+              .widthIn(max = if (isPreviewMobileViewport) 380.dp else 680.dp)
+              .fillMaxSize()
               .border(1.dp, clientBorder, RoundedCornerShape(12.dp))
           ) {
-            Column(
-              modifier = Modifier
-                .fillMaxWidth()
-                .padding(20.dp),
-              verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-              // Header
-              Column {
+            Column(modifier = Modifier.fillMaxSize()) {
+              // Email Metadata Header
+              Column(
+                modifier = Modifier
+                  .fillMaxWidth()
+                  .background(if (isDarkClient) Color(0xFF1E1E24) else (if (isDark) Color(0xFF26292E) else Color(0xFFF8FAFC)))
+                  .padding(horizontal = 14.dp, vertical = 10.dp)
+              ) {
                 Text(
                   text = subject.ifBlank { "Subject: Preview" },
                   fontWeight = FontWeight.Bold,
-                  fontSize = 17.sp,
+                  fontSize = 15.sp,
                   color = clientTextColor
                 )
+                Spacer(modifier = Modifier.height(2.dp))
                 Text(
                   text = "From: ${sender.displayName.ifBlank { "My Name" }} <${sender.email.ifBlank { "your.email@gmail.com" }}>  •  To: ${recipient.ifBlank { "recipient@example.com" }}",
                   fontSize = 11.sp,
@@ -1651,40 +1692,69 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                   .background(clientBorder)
               )
 
-              // Render current message blocks
-              val currentMsg = viewModel.getCurrentEmailMessage()
-              currentMsg.blocks.forEach { block ->
-                RenderVisualBlock(block, clientDarkMode)
+              // Live WebView rendering index.html from http://127.0.0.1:$activePreviewPort/
+              Box(
+                modifier = Modifier
+                  .weight(1f)
+                  .fillMaxWidth()
+              ) {
+                if (activePreviewPort > 0) {
+                  AndroidView(
+                    factory = { ctx ->
+                      WebView(ctx).apply {
+                        settings.javaScriptEnabled = true
+                        settings.domStorageEnabled = true
+                        settings.useWideViewPort = true
+                        settings.loadWithOverviewMode = true
+                        settings.builtInZoomControls = true
+                        settings.displayZoomControls = false
+                        webViewClient = WebViewClient()
+                        setBackgroundColor(
+                          if (isDarkClient) android.graphics.Color.parseColor("#18181B")
+                          else android.graphics.Color.WHITE
+                        )
+                        loadUrl("http://127.0.0.1:$activePreviewPort/")
+                      }
+                    },
+                    update = { webView ->
+                      webView.setBackgroundColor(
+                        if (isDarkClient) android.graphics.Color.parseColor("#18181B")
+                        else android.graphics.Color.WHITE
+                      )
+                      val targetUrl = "http://127.0.0.1:$activePreviewPort/"
+                      if (webView.url != targetUrl) {
+                        webView.loadUrl(targetUrl)
+                      }
+                    },
+                    modifier = Modifier.fillMaxSize()
+                  )
+                } else {
+                  Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                  ) {
+                    Text(
+                      text = "Booting local ephemeral server...",
+                      color = clientSubColor,
+                      fontSize = 12.sp,
+                      fontFamily = FontFamily.Monospace
+                    )
+                  }
+                }
               }
 
-              // Attachments
+              // Attachments if any
               if (attachments.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(6.dp))
-                Box(
+                Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(clientBorder))
+                Row(
                   modifier = Modifier
                     .fillMaxWidth()
-                    .height(1.dp)
-                    .background(clientBorder)
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                  Icon(Icons.Default.AttachFile, contentDescription = null, tint = clientSubColor, modifier = Modifier.size(16.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                  verticalAlignment = Alignment.CenterVertically
+                ) {
+                  Icon(Icons.Default.AttachFile, contentDescription = null, tint = clientSubColor, modifier = Modifier.size(14.dp))
                   Spacer(modifier = Modifier.width(6.dp))
-                  Text("${attachments.size} Attachment(s)", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = clientTextColor)
-                }
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                  attachments.forEach { att ->
-                    Surface(
-                      shape = RoundedCornerShape(8.dp),
-                      color = if (isDarkClient) Color(0xFF2E2E36) else Color(0xFFF8FAFC),
-                      border = androidx.compose.foundation.BorderStroke(1.dp, clientBorder),
-                      modifier = Modifier.fillMaxWidth()
-                    ) {
-                      Row(modifier = Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text("📎 ${att.fileName} (${att.formattedSize})", fontSize = 11.sp, color = clientTextColor, maxLines = 1)
-                      }
-                    }
-                  }
+                  Text("${attachments.size} Attachment(s) ready to send", fontSize = 11.sp, color = clientSubColor)
                 }
               }
             }
@@ -1695,9 +1765,9 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
 
         // Clean Responsive Bottom Bar inside Preview Modal
         Surface(
-          color = Color(0xFFF8FAFC),
+          color = if (isDark) Color(0xFF1E2024) else Color(0xFFF8FAFC),
           shape = RoundedCornerShape(14.dp),
-          border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE2E8F0)),
+          border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF2C3038) else Color(0xFFE2E8F0)),
           modifier = Modifier.fillMaxWidth()
         ) {
           Column(
@@ -1718,8 +1788,8 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                 fontWeight = FontWeight.SemiBold
               )
               Text(
-                text = "smtp.gmail.com:465",
-                color = Color(0xFF64748B),
+                text = if (activePreviewPort > 0) "Server: 127.0.0.1:$activePreviewPort" else "smtp.gmail.com:465",
+                color = if (activePreviewPort > 0) Color(0xFF10B981) else (if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)),
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace
               )
@@ -1733,7 +1803,9 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
             ) {
               OutlinedButton(
                 onClick = { showPreviewModal = false },
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFF1E1B4B)),
+                colors = ButtonDefaults.outlinedButtonColors(
+                  contentColor = if (isDark) Color(0xFFE2E8F0) else Color(0xFF1E1B4B)
+                ),
                 shape = RoundedCornerShape(10.dp),
                 modifier = Modifier
                   .weight(1f)
@@ -1786,50 +1858,62 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
       ) {
-        // Left: Hamburger menu + File pill
+        // Left: Hamburger menu + Compact Sleek File Tab
         Row(
           verticalAlignment = Alignment.CenterVertically,
-          modifier = Modifier.weight(1f, fill = false)
+          modifier = Modifier.height(36.dp)
         ) {
           IconButton(
             onClick = { showTemplatesModal = true },
-            modifier = Modifier.size(36.dp)
+            modifier = Modifier.size(32.dp)
           ) {
-            Icon(Icons.Default.Menu, contentDescription = "Menu / Templates", tint = wsTextColor)
+            Icon(Icons.Default.Menu, contentDescription = "Menu / Templates", tint = wsTextColor, modifier = Modifier.size(18.dp))
           }
 
           Spacer(modifier = Modifier.width(4.dp))
 
           Surface(
-            color = if (isDark) Color(0xFF26292E) else Color(0xFFE2E8F0),
+            color = if (isDark) Color(0xFF262930) else Color(0xFFE2E8F0),
             shape = RoundedCornerShape(6.dp),
-            modifier = Modifier.clickable { showTemplatesModal = true }
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF3E4451) else Color(0xFFCBD5E1)),
+            modifier = Modifier
+              .height(28.dp)
+              .clickable { showTemplatesModal = true }
           ) {
             Row(
-              modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+              modifier = Modifier
+                .height(28.dp)
+                .padding(horizontal = 8.dp),
               verticalAlignment = Alignment.CenterVertically
             ) {
               Icon(
                 Icons.Default.Code,
                 contentDescription = null,
                 tint = if (isDark) Color(0xFFA78BFA) else Color(0xFF7C3AED),
-                modifier = Modifier.size(14.dp)
+                modifier = Modifier.size(13.dp)
               )
-              Spacer(modifier = Modifier.width(6.dp))
+              Spacer(modifier = Modifier.width(5.dp))
               Text(
                 text = "index.html",
                 color = wsTextColor,
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                fontSize = 11.sp,
                 fontFamily = FontFamily.Monospace
               )
-              Spacer(modifier = Modifier.width(4.dp))
-              Text(
-                text = "(${lineCount}L)",
-                color = wsSubtextColor,
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace
-              )
+              Spacer(modifier = Modifier.width(5.dp))
+              Box(
+                modifier = Modifier
+                  .clip(RoundedCornerShape(3.dp))
+                  .background(if (isDark) Color(0xFF333842) else Color(0xFFCBD5E1))
+                  .padding(horizontal = 4.dp, vertical = 1.dp)
+              ) {
+                Text(
+                  text = "${lineCount}L",
+                  color = wsSubtextColor,
+                  fontSize = 9.sp,
+                  fontFamily = FontFamily.Monospace
+                )
+              }
             }
           }
         }
@@ -1983,7 +2067,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                 }
               )
               DropdownMenuItem(
-                text = { Text("⇥ Format / Indent HTML", color = Color(0xFF1E293B)) },
+                text = { Text("⇥ Format / Indent HTML", color = wsTextColor) },
                 onClick = {
                   showMenuDropdown = false
                   viewModel.formatCurrentCustomHtml()
@@ -1999,7 +2083,7 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                 }
               )
               DropdownMenuItem(
-                text = { Text("📋 Copy All Code", color = Color(0xFF1E293B)) },
+                text = { Text("📋 Copy All Code", color = wsTextColor) },
                 onClick = {
                   showMenuDropdown = false
                   val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager

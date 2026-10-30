@@ -174,13 +174,13 @@ fun DeployScreen(
               Column {
                 Text(
                   text = "Deploy & Dispatch Studio",
-                  color = Color(0xFF1E1B4B),
+                  color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF1E1B4B),
                   style = MaterialTheme.typography.titleMedium,
                   fontWeight = FontWeight.Bold
                 )
                 Text(
                   text = "Production Gmail SMTP Gateway • Port 465 SSL",
-                  color = Color(0xFF5B21B6),
+                  color = if (isDark) Color(0xFFA78BFA) else Color(0xFF5B21B6),
                   fontSize = 11.sp,
                   fontFamily = FontFamily.Monospace
                 )
