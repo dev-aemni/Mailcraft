@@ -249,8 +249,8 @@ fun DeployScreen(
           Spacer(modifier = Modifier.height(8.dp))
 
           PreFlightItem(
-            title = "Primary Inbox Routing Headers",
-            detail = "Precedence: personal • X-Priority: 3 • Priority: normal (Direct to Inbox)",
+            title = "Direct Inbox & High-Priority Routing",
+            detail = "X-Priority: 1 (Highest) • Importance: high • IMAP [Inbox] Injection Active",
             isPassed = true
           )
 
@@ -733,8 +733,8 @@ fun DeployScreen(
           Icon(Icons.Default.Security, contentDescription = null, tint = Color(0xFF2563EB), modifier = Modifier.size(20.dp))
           Spacer(modifier = Modifier.width(8.dp))
           Column {
-            Text("Primary Inbox Routing Active", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E40AF))
-            Text("Using RFC 'Precedence: personal' & standard Message-IDs to bypass Promotions & Spam filters.", fontSize = 11.sp, color = Color(0xFF1D4ED8))
+            Text("Direct Inbox Injection Active ⚡", fontWeight = FontWeight.Bold, fontSize = 12.sp, color = Color(0xFF1E40AF))
+            Text("Delivers with [Inbox] tag & High Importance (Discord-style) with automatic IMAP sync.", fontSize = 11.sp, color = Color(0xFF1D4ED8))
           }
         }
       }

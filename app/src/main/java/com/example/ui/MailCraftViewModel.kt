@@ -960,9 +960,9 @@ Return the complete, updated HTML code inside ```html ... ``` code fences.
       _sendState.value = SendState.Sending(listOf("Initiating Gmail SMTP TLS connection..."))
 
       val contentResolver = getApplication<Application>().contentResolver
-      val result = GmailSmtpClient.sendEmail(message, contentResolver)
+      val isSelf = currentRecipient.equals(sender.email.trim(), ignoreCase = true)
+      val result = GmailSmtpClient.sendEmail(message, contentResolver, forceInboxSync = isSelf)
       if (result.success) {
-        val isSelf = currentRecipient.equals(sender.email.trim(), ignoreCase = true)
         _sendState.value = SendState.Success(
           message = result.message,
           messageId = result.messageId,
