@@ -25,6 +25,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
@@ -33,6 +35,8 @@ import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
@@ -79,6 +83,38 @@ fun TemplatesScreen(viewModel: MailCraftViewModel) {
   val builtInTemplates = TemplatePresets.allTemplates
 
   var selectedTab by remember { mutableStateOf(0) } // 0 = Internal, 1 = Built-in
+
+  var pendingExportJson by remember { mutableStateOf<String?>(null) }
+  var pendingExportFileName by remember { mutableStateOf("mailcraft_templates_backup.json") }
+
+  val exportFileLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.CreateDocument("application/json")
+  ) { uri ->
+    uri?.let { destUri ->
+      val json = pendingExportJson ?: return@let
+      val success = viewModel.writeJsonToUri(context, destUri, json)
+      if (success) {
+        Toast.makeText(context, "✅ Template JSON saved to storage!", Toast.LENGTH_LONG).show()
+      } else {
+        Toast.makeText(context, "Failed to write JSON to storage.", Toast.LENGTH_SHORT).show()
+      }
+    }
+  }
+
+  val importFileLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.GetContent()
+  ) { uri ->
+    uri?.let { sourceUri ->
+      val json = viewModel.readJsonFromUri(context, sourceUri)
+      if (!json.isNullOrBlank()) {
+        viewModel.importTemplatesFromJson(json) { count, msg ->
+          Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+        }
+      } else {
+        Toast.makeText(context, "Failed to read selected JSON file.", Toast.LENGTH_SHORT).show()
+      }
+    }
+  }
 
   LazyColumn(
     modifier = Modifier.fillMaxSize(),
@@ -162,35 +198,102 @@ fun TemplatesScreen(viewModel: MailCraftViewModel) {
           colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
           modifier = Modifier.fillMaxWidth().border(1.dp, PurpleOutline, RoundedCornerShape(14.dp))
         ) {
-          Row(
-            modifier = Modifier.fillMaxWidth().padding(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-          ) {
-            Column(modifier = Modifier.weight(1f)) {
-              Text(
-                text = "Save Current Email to Library",
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                color = MaterialTheme.colorScheme.onSurface
-              )
-              Text(
-                text = "Stores your visual or HTML email code locally in the internal database.",
-                fontSize = 11.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-              )
-            }
-            Button(
-              onClick = {
-                viewModel.saveCustomTemplate("Custom Email Design")
-                Toast.makeText(context, "Saved current design as template!", Toast.LENGTH_SHORT).show()
-              },
-              colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary),
-              shape = RoundedCornerShape(10.dp)
+          Column(modifier = Modifier.fillMaxWidth().padding(14.dp)) {
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              verticalAlignment = Alignment.CenterVertically,
+              horizontalArrangement = Arrangement.SpaceBetween
             ) {
-              Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
-              Spacer(modifier = Modifier.width(4.dp))
-              Text("Save Now", fontSize = 12.sp)
+              Column(modifier = Modifier.weight(1f)) {
+                Text(
+                  text = "Save Current Email to Library",
+                  fontWeight = FontWeight.Bold,
+                  fontSize = 13.sp,
+                  color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                  text = "Stores your active editor design in the local database.",
+                  fontSize = 11.sp,
+                  color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+              }
+              Button(
+                onClick = {
+                  viewModel.saveCustomTemplate("Custom Email Design")
+                  Toast.makeText(context, "Saved current design as template!", Toast.LENGTH_SHORT).show()
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = PurplePrimary),
+                shape = RoundedCornerShape(10.dp)
+              ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(16.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Save Now", fontSize = 12.sp)
+              }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // JSON Backup, Local Export & Import Actions
+            Row(
+              modifier = Modifier.fillMaxWidth(),
+              horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+              // Export All Backup Button
+              Button(
+                onClick = {
+                  if (customTemplates.isEmpty()) {
+                    Toast.makeText(context, "No custom templates to export.", Toast.LENGTH_SHORT).show()
+                  } else {
+                    val json = viewModel.exportAllCustomTemplatesJson()
+                    pendingExportJson = json
+                    pendingExportFileName = "mailcraft_templates_backup.json"
+                    exportFileLauncher.launch(pendingExportFileName)
+                  }
+                },
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0284C7)),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.weight(1f).testTag("btn_export_all_templates")
+              ) {
+                Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Export Backup", fontSize = 11.5.sp)
+              }
+
+              // Share All Button
+              OutlinedButton(
+                onClick = {
+                  if (customTemplates.isEmpty()) {
+                    Toast.makeText(context, "No custom templates to share.", Toast.LENGTH_SHORT).show()
+                  } else {
+                    val json = viewModel.exportAllCustomTemplatesJson()
+                    viewModel.shareCustomTemplateJson(
+                      context,
+                      json,
+                      "mailcraft_templates_backup.json",
+                      "Share All MailCraft Templates"
+                    )
+                  }
+                },
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.weight(1f).testTag("btn_share_all_templates")
+              ) {
+                Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Share", fontSize = 11.5.sp)
+              }
+
+              // Import JSON Button
+              OutlinedButton(
+                onClick = {
+                  importFileLauncher.launch("application/json")
+                },
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.weight(1f).testTag("btn_import_templates")
+              ) {
+                Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(15.dp))
+                Spacer(modifier = Modifier.width(4.dp))
+                Text("Import JSON", fontSize = 11.5.sp)
+              }
             }
           }
         }
@@ -303,10 +406,11 @@ fun TemplatesScreen(viewModel: MailCraftViewModel) {
 
               Spacer(modifier = Modifier.height(14.dp))
 
-              // Actions: Edit in HTML Studio, Deploy, Export
+              // Actions: Edit in HTML Studio, Deploy, Export, Share
               Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically
               ) {
                 OutlinedButton(
                   onClick = {
@@ -335,6 +439,44 @@ fun TemplatesScreen(viewModel: MailCraftViewModel) {
                   Text("Deploy / Send", fontSize = 11.sp)
                 }
 
+                // Export Single Template to Local JSON File
+                IconButton(
+                  onClick = {
+                    val json = viewModel.exportSingleCustomTemplateJson(template)
+                    val safeName = template.title.replace(Regex("[^a-zA-Z0-9_-]"), "_").lowercase()
+                    pendingExportJson = json
+                    pendingExportFileName = "template_${safeName}.json"
+                    exportFileLauncher.launch(pendingExportFileName)
+                  }
+                ) {
+                  Icon(
+                    Icons.Default.FileDownload,
+                    contentDescription = "Export JSON File",
+                    tint = Color(0xFF0284C7)
+                  )
+                }
+
+                // Share Single Template JSON
+                IconButton(
+                  onClick = {
+                    val json = viewModel.exportSingleCustomTemplateJson(template)
+                    val safeName = template.title.replace(Regex("[^a-zA-Z0-9_-]"), "_").lowercase()
+                    viewModel.shareCustomTemplateJson(
+                      context,
+                      json,
+                      "template_${safeName}.json",
+                      "Share \"${template.title}\" Template"
+                    )
+                  }
+                ) {
+                  Icon(
+                    Icons.Default.Share,
+                    contentDescription = "Share Template JSON",
+                    tint = Color(0xFF7C3AED)
+                  )
+                }
+
+                // Copy HTML to Clipboard
                 IconButton(
                   onClick = {
                     val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -342,7 +484,11 @@ fun TemplatesScreen(viewModel: MailCraftViewModel) {
                     Toast.makeText(context, "Copied template HTML to clipboard!", Toast.LENGTH_SHORT).show()
                   }
                 ) {
-                  Icon(Icons.Default.ContentCopy, contentDescription = "Copy HTML", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                  Icon(
+                    Icons.Default.ContentCopy,
+                    contentDescription = "Copy HTML",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                  )
                 }
               }
             }

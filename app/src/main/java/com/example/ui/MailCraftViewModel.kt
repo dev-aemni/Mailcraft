@@ -1,6 +1,7 @@
 package com.example.ui
 
 import android.app.Application
+import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.room.Room
@@ -718,6 +719,46 @@ Return the complete, updated HTML code inside ```html ... ``` code fences.
     _subject.value = template.subject
     _customHtmlContent.value = template.htmlContent
     _isCustomHtmlActive.value = true
+  }
+
+  fun exportAllCustomTemplatesJson(): String {
+    return com.example.util.TemplateJsonExporter.exportAllTemplates(customTemplates.value)
+  }
+
+  fun exportSingleCustomTemplateJson(template: CustomTemplateEntity): String {
+    return com.example.util.TemplateJsonExporter.exportSingleTemplate(template)
+  }
+
+  fun importTemplatesFromJson(jsonString: String, onResult: (count: Int, message: String) -> Unit) {
+    viewModelScope.launch {
+      try {
+        val parsed = com.example.util.TemplateJsonExporter.parseTemplatesFromJson(jsonString)
+        if (parsed.isEmpty()) {
+          onResult(0, "No valid templates found in the selected JSON file.")
+          return@launch
+        }
+        var importedCount = 0
+        parsed.forEach { template ->
+          mailDao.insertCustomTemplate(template)
+          importedCount++
+        }
+        onResult(importedCount, "Successfully imported $importedCount template${if (importedCount > 1) "s" else ""}!")
+      } catch (e: Exception) {
+        onResult(0, "Error parsing JSON: ${e.localizedMessage ?: "Invalid template schema"}")
+      }
+    }
+  }
+
+  fun writeJsonToUri(context: Context, uri: Uri, content: String): Boolean {
+    return com.example.util.TemplateJsonExporter.writeJsonToUri(context, uri, content)
+  }
+
+  fun readJsonFromUri(context: Context, uri: Uri): String? {
+    return com.example.util.TemplateJsonExporter.readJsonFromUri(context, uri)
+  }
+
+  fun shareCustomTemplateJson(context: Context, jsonContent: String, fileName: String, title: String) {
+    com.example.util.TemplateJsonExporter.shareTemplateJson(context, jsonContent, fileName, title)
   }
 
   fun updateAvatar(preset: String, customUrl: String = "") {

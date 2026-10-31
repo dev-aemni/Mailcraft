@@ -5,26 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>404 - Page Not Found | Dev Aemni</title>
 
-    <script>
-        (function() {
-            var pathname = window.location.pathname;
-            var search = window.location.search;
-            var isMailcraft = pathname.startsWith('/Mailcraft');
-            var errorBase = isMailcraft ? '/Mailcraft/error/' : '/error/';
-            if (!pathname.includes('/error')) {
-                var target = errorBase + '?code=404&src=' + encodeURIComponent(pathname + search);
-                window.location.replace(target);
-            }
-        })();
-    </script>
-    <meta http-equiv="refresh" content="0; url=/Mailcraft/error/?code=404">
-
     <!-- Google Fonts Fallback -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Chewy&family=Changa+One:ital@0;1&family=Playwrite+IT+Trad:wght@100..400&display=swap" rel="stylesheet">
 
     <style>
+        /* Custom Font Definitions */
         @font-face {
             font-family: 'ChangaOneLocal';
             src: url('/fonts/ChangaOne-Regular.ttf') format('truetype');
@@ -67,6 +54,7 @@
             font-weight: normal;
         }
 
+        /* Neumorphic Error Card */
         .neu-card {
             background-color: #ecf0f3;
             padding: 40px 25px;
@@ -114,6 +102,7 @@
             box-shadow: inset -3px -3px 8px #ffffff, inset 3px 3px 8px rgba(0, 0, 0, 0.16);
         }
 
+        /* Footer */
         footer {
             background-color: #ecf0f3;
             padding: 20px;
@@ -150,19 +139,20 @@
             <div class="error-code" id="error-code">404</div>
             <h1 id="error-title">Page Not Found</h1>
             <p id="error-desc">The requested endpoint path does not exist or has been moved.</p>
-            <a href="/Mailcraft/" class="home-btn" id="home-btn">Return to Home</a>
+            <a href="./" class="home-btn" id="home-btn">Return to Home</a>
         </div>
 
         <footer>
             <p>&copy; 2026 Dev Aemni. All rights reserved.</p>
             <nav>
-                <a href="/Mailcraft/" id="footer-home">Home</a> • 
-                <a href="/Mailcraft/help/">Help &amp; Docs</a> • 
+                <a href="./" id="footer-home">Home</a> • 
+                <a href="./help/" id="footer-help">Help &amp; Docs</a> • 
                 <a href="https://github.com/dev-aemni/Mailcraft/issues">Report Issue</a>
             </nav>
         </footer>
     </div>
 
+    <!-- Dynamic Error Resolver Script -->
     <script>
         const errorMap = {
             "400": { title: "Bad Request", desc: "The server could not understand the request due to invalid syntax." },
@@ -195,12 +185,16 @@
             document.title = `${code} - ${errorMap[code].title} | Dev Aemni`;
         }
 
-        if (!window.location.pathname.startsWith('/Mailcraft')) {
-            var homeBtn = document.getElementById('home-btn');
-            if (homeBtn) homeBtn.href = '/';
-            var footerHome = document.getElementById('footer-home');
-            if (footerHome) footerHome.href = '/';
-        }
+        const isMailcraft = window.location.pathname.startsWith('/Mailcraft');
+        const homeHref = isMailcraft ? '/Mailcraft/' : '/';
+        const helpHref = isMailcraft ? '/Mailcraft/help/' : '/help/';
+        
+        const homeBtn = document.getElementById('home-btn');
+        if (homeBtn) homeBtn.href = homeHref;
+        const footerHome = document.getElementById('footer-home');
+        if (footerHome) footerHome.href = homeHref;
+        const footerHelp = document.getElementById('footer-help');
+        if (footerHelp) footerHelp.href = helpHref;
     </script>
 </body>
 </html>

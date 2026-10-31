@@ -51,6 +51,8 @@ import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.Devices
+import androidx.compose.material.icons.filled.FileDownload
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material.icons.filled.FormatAlignLeft
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
@@ -64,6 +66,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.VerticalSplit
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.Warning
@@ -206,6 +209,39 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
       previewServer.stop()
     }
   }
+
+  var pendingWsExportJson by remember { mutableStateOf<String?>(null) }
+  var pendingWsExportName by remember { mutableStateOf("mailcraft_template.json") }
+
+  val wsExportLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.CreateDocument("application/json")
+  ) { uri ->
+    uri?.let { destUri ->
+      val json = pendingWsExportJson ?: return@let
+      val success = viewModel.writeJsonToUri(context, destUri, json)
+      if (success) {
+        Toast.makeText(context, "✅ Template JSON exported successfully!", Toast.LENGTH_LONG).show()
+      } else {
+        Toast.makeText(context, "Failed to write JSON.", Toast.LENGTH_SHORT).show()
+      }
+    }
+  }
+
+  val wsImportLauncher = rememberLauncherForActivityResult(
+    contract = ActivityResultContracts.GetContent()
+  ) { uri ->
+    uri?.let { sourceUri ->
+      val json = viewModel.readJsonFromUri(context, sourceUri)
+      if (!json.isNullOrBlank()) {
+        viewModel.importTemplatesFromJson(json) { count, msg ->
+          Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+        }
+      } else {
+        Toast.makeText(context, "Failed to read JSON file.", Toast.LENGTH_SHORT).show()
+      }
+    }
+  }
+
   var showClearConfirmDialog by remember { mutableStateOf(false) }
   var showTemplatesModal by remember { mutableStateOf(false) }
   var showVariablesModal by remember { mutableStateOf(false) }
@@ -981,6 +1017,43 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
         Spacer(modifier = Modifier.height(10.dp))
 
         if (templatesTab == 0) {
+          // Actions: Backup All & Import JSON
+          Row(
+            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+          ) {
+            OutlinedButton(
+              onClick = {
+                if (customTemplates.isEmpty()) {
+                  Toast.makeText(context, "No templates to export.", Toast.LENGTH_SHORT).show()
+                } else {
+                  val json = viewModel.exportAllCustomTemplatesJson()
+                  pendingWsExportJson = json
+                  pendingWsExportName = "mailcraft_templates_backup.json"
+                  wsExportLauncher.launch(pendingWsExportName)
+                }
+              },
+              modifier = Modifier.weight(1f),
+              shape = RoundedCornerShape(8.dp)
+            ) {
+              Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(14.dp))
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("Export Backup", fontSize = 11.sp)
+            }
+
+            OutlinedButton(
+              onClick = {
+                wsImportLauncher.launch("application/json")
+              },
+              modifier = Modifier.weight(1f),
+              shape = RoundedCornerShape(8.dp)
+            ) {
+              Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(14.dp))
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("Import JSON", fontSize = 11.sp)
+            }
+          }
+
           // My Internal Templates
           if (customTemplates.isEmpty()) {
             Box(
@@ -2127,6 +2200,41 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
                 onClick = {
                   showMenuDropdown = false
                   try { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://dev-aemni.github.io/Mailcraft/help/"))) } catch (_: Exception) {}
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("💾 Export Current Code as JSON", color = Color(0xFF0284C7), fontSize = 12.sp) },
+                onClick = {
+                  showMenuDropdown = false
+                  val customTpl = com.example.data.CustomTemplateEntity(
+                    title = "Workstation Template",
+                    htmlContent = textFieldValue.text,
+                    subject = "Special Update"
+                  )
+                  val json = viewModel.exportSingleCustomTemplateJson(customTpl)
+                  pendingWsExportJson = json
+                  pendingWsExportName = "mailcraft_code_template.json"
+                  wsExportLauncher.launch(pendingWsExportName)
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("📤 Share Code as JSON", color = Color(0xFF8B5CF6), fontSize = 12.sp) },
+                onClick = {
+                  showMenuDropdown = false
+                  val customTpl = com.example.data.CustomTemplateEntity(
+                    title = "Workstation Template",
+                    htmlContent = textFieldValue.text,
+                    subject = "Special Update"
+                  )
+                  val json = viewModel.exportSingleCustomTemplateJson(customTpl)
+                  viewModel.shareCustomTemplateJson(context, json, "mailcraft_code_template.json", "Share Code Template")
+                }
+              )
+              DropdownMenuItem(
+                text = { Text("📥 Import Template JSON", color = Color(0xFF10B981), fontSize = 12.sp) },
+                onClick = {
+                  showMenuDropdown = false
+                  wsImportLauncher.launch("application/json")
                 }
               )
               DropdownMenuItem(

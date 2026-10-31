@@ -4,25 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>404 - Page Not Found | Dev Aemni</title>
-
-    <script>
-        (function() {
-            var pathname = window.location.pathname;
-            var search = window.location.search;
-            var isMailcraft = pathname.startsWith('/Mailcraft');
-            var errorBase = isMailcraft ? '/Mailcraft/error/' : '/error/';
-            if (!pathname.includes('/error')) {
-                var target = errorBase + '?code=404&src=' + encodeURIComponent(pathname + search);
-                window.location.replace(target);
-            }
-        })();
-    </script>
-    <meta http-equiv="refresh" content="0; url=/Mailcraft/error/?code=404">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Chewy&family=Changa+One:ital@0;1&family=Playwrite+IT+Trad:wght@100..400&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; background-color: #ecf0f3; font-family: 'ChangaOneLocal', 'Changa One', sans-serif; outline: none; }
+        * { margin: 0px; padding: 0px; box-sizing: border-box; background-color: #ecf0f3; font-family: 'ChangaOneLocal', 'Changa One', sans-serif; outline: none; }
         body { background-color: #ecf0f3; color: rgb(110, 115, 125); min-height: 100vh; padding: 25px 15px; display: flex; flex-direction: column; justify-content: center; align-items: center; line-height: 1.6; }
         .container { max-width: 650px; width: 100%; text-align: center; }
         h1, .home-btn { font-family: 'Chewy', cursive, sans-serif; font-weight: normal; }
@@ -44,13 +30,13 @@
             <div class="error-code" id="error-code">404</div>
             <h1 id="error-title">Page Not Found</h1>
             <p id="error-desc">The requested endpoint path does not exist or has been moved.</p>
-            <a href="/Mailcraft/" class="home-btn" id="home-btn">Return to Home</a>
+            <a href="./" class="home-btn" id="home-btn">Return to Home</a>
         </div>
         <footer>
             <p>&copy; 2026 Dev Aemni. All rights reserved.</p>
             <nav>
-                <a href="/Mailcraft/" id="footer-home">Home</a> • 
-                <a href="/Mailcraft/help/">Help &amp; Docs</a> • 
+                <a href="./" id="footer-home">Home</a> • 
+                <a href="./help/" id="footer-help">Help &amp; Docs</a> • 
                 <a href="https://github.com/dev-aemni/Mailcraft/issues">Report Issue</a>
             </nav>
         </footer>
