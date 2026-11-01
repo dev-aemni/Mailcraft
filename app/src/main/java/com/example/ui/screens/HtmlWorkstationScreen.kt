@@ -1672,13 +1672,15 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
           ClientDarkMode.OUTLOOK -> Color(0xFF2E2E32)
           ClientDarkMode.APPLE_MAIL -> Color(0xFF3F3F46)
         }
-        val clientTextColor = when (clientDarkMode) {
-          ClientDarkMode.OFF -> if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
-          else -> Color(0xFFF1F5F9)
+        val clientTextColor = when {
+          clientDarkMode != ClientDarkMode.OFF -> Color(0xFFF1F5F9)
+          isDark -> Color(0xFFF1F5F9)
+          else -> Color(0xFF0F172A)
         }
-        val clientSubColor = when (clientDarkMode) {
-          ClientDarkMode.OFF -> if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
-          else -> Color(0xFF94A3B8)
+        val clientSubColor = when {
+          clientDarkMode != ClientDarkMode.OFF -> Color(0xFF94A3B8)
+          isDark -> Color(0xFFCBD5E1)
+          else -> Color(0xFF64748B)
         }
 
         // Dark Mode Client Selector
@@ -1740,14 +1742,20 @@ fun HtmlWorkstationScreen(viewModel: MailCraftViewModel) {
           ) {
             Column(modifier = Modifier.fillMaxSize()) {
               // Email Metadata Header
+              val extractedTitle = remember(textFieldValue.text) {
+                Regex("""<title[^>]*>(.*?)</title>""", RegexOption.IGNORE_CASE)
+                  .find(textFieldValue.text)?.groupValues?.getOrNull(1)?.trim()
+              }
+              val displaySubject = extractedTitle?.ifBlank { null } ?: subject.ifBlank { "Subject: Preview" }
+
               Column(
                 modifier = Modifier
                   .fillMaxWidth()
-                  .background(if (isDarkClient) Color(0xFF1E1E24) else (if (isDark) Color(0xFF26292E) else Color(0xFFF8FAFC)))
+                  .background(if (isDarkClient || isDark) Color(0xFF1E1E24) else Color(0xFFF8FAFC))
                   .padding(horizontal = 14.dp, vertical = 10.dp)
               ) {
                 Text(
-                  text = subject.ifBlank { "Subject: Preview" },
+                  text = displaySubject,
                   fontWeight = FontWeight.Bold,
                   fontSize = 15.sp,
                   color = clientTextColor

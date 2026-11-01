@@ -234,7 +234,7 @@ class MailCraftViewModel(application: Application) : AndroidViewModel(applicatio
 
     return """
 Developer, Project Knowledge & Important URLs:
-- Project: MailCraft (v1.1.1) — Native Android HTML Email Workstation & Direct Primary Inbox Client
+- Project: MailCraft (v1.1.4) — Native Android HTML Email Workstation & Direct Primary Inbox Client
 - Author/Creator: 2026 @dev-aemni
 - Official Webpage & Showcase: https://dev-aemni.github.io/Mailcraft/ (dev-aemni.github.io/Mailcraft)
 - Help & Setup Documentation: https://dev-aemni.github.io/Mailcraft/help/ (dev-aemni.github.io/Mailcraft/help)
@@ -686,6 +686,27 @@ Return the complete, updated HTML code inside ```html ... ``` code fences.
     _activeTab.value = AppTab.COMPOSE
   }
 
+  /**
+   * Resets the entire email to a clean blank slate (0 blocks) so the user
+   * can create their own custom email from scratch instead of editing default blocks.
+   */
+  fun resetToBlankEmail() {
+    _currentDraftId.value = null
+    _recipientEmail.value = ""
+    _ccEmail.value = ""
+    _bccEmail.value = ""
+    _subject.value = ""
+    _attachments.value = emptyList()
+    _isCustomHtmlActive.value = false
+    _customHtmlContent.value = ""
+    _blocks.value = emptyList()
+    _activeTab.value = AppTab.COMPOSE
+  }
+
+  fun clearAllBlocks() {
+    _blocks.value = emptyList()
+  }
+
   fun saveCustomTemplate(title: String, iconEmoji: String = "📄", explicitHtml: String? = null) {
     val content = explicitHtml
       ?: if (_isCustomHtmlActive.value && _customHtmlContent.value.isNotBlank()) {
@@ -1050,6 +1071,17 @@ Return the complete, updated HTML code inside ```html ... ``` code fences.
   fun setCustomHtml(html: String) {
     _customHtmlContent.value = html
     _isCustomHtmlActive.value = true
+    syncTitleFromHtml(html)
+  }
+
+  fun syncTitleFromHtml(html: String) {
+    val match = Regex("""<title[^>]*>(.*?)</title>""", RegexOption.IGNORE_CASE).find(html)
+    if (match != null) {
+      val extracted = match.groupValues[1].trim()
+      if (extracted.isNotBlank()) {
+        _subject.value = extracted
+      }
+    }
   }
 
   fun enableCustomHtmlMode() {
@@ -1066,6 +1098,7 @@ Return the complete, updated HTML code inside ```html ... ``` code fences.
       )
     }
     _isCustomHtmlActive.value = true
+    syncTitleFromHtml(_customHtmlContent.value)
   }
 
   fun disableCustomHtmlMode() {

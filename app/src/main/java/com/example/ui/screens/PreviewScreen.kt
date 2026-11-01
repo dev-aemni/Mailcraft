@@ -96,38 +96,41 @@ fun PreviewScreen(viewModel: MailCraftViewModel) {
   var subTab by remember { mutableStateOf(PreviewSubTab.VISUAL) }
   var isMobileViewport by remember { mutableStateOf(false) }
 
-  val isDarkClient = clientDarkMode != ClientDarkMode.OFF
+  val isAppDark by viewModel.isAppDarkMode.collectAsState()
+  val isDarkClient = clientDarkMode != ClientDarkMode.OFF || isAppDark
   val clientBgColor = when (clientDarkMode) {
-    ClientDarkMode.OFF -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+    ClientDarkMode.OFF -> if (isAppDark) Color(0xFF131518) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
     ClientDarkMode.GMAIL -> Color(0xFF121212)
     ClientDarkMode.OUTLOOK -> Color(0xFF0F0F0F)
     ClientDarkMode.APPLE_MAIL -> Color(0xFF18181B)
   }
   val clientHeaderBg = when (clientDarkMode) {
-    ClientDarkMode.OFF -> MaterialTheme.colorScheme.surface
+    ClientDarkMode.OFF -> if (isAppDark) Color(0xFF1E2024) else Color(0xFFFFFFFF)
     ClientDarkMode.GMAIL -> Color(0xFF1F1F1F)
     ClientDarkMode.OUTLOOK -> Color(0xFF181818)
     ClientDarkMode.APPLE_MAIL -> Color(0xFF27272A)
   }
   val clientCardBg = when (clientDarkMode) {
-    ClientDarkMode.OFF -> Color.White
+    ClientDarkMode.OFF -> if (isAppDark) Color(0xFF1E2024) else Color.White
     ClientDarkMode.GMAIL -> Color(0xFF24242A)
     ClientDarkMode.OUTLOOK -> Color(0xFF141416)
     ClientDarkMode.APPLE_MAIL -> Color(0xFF1E1E22)
   }
   val clientBorderColor = when (clientDarkMode) {
-    ClientDarkMode.OFF -> Color(0xFFE2E8F0)
+    ClientDarkMode.OFF -> if (isAppDark) Color(0xFF2C3038) else Color(0xFFE2E8F0)
     ClientDarkMode.GMAIL -> Color(0xFF333338)
     ClientDarkMode.OUTLOOK -> Color(0xFF2E2E32)
     ClientDarkMode.APPLE_MAIL -> Color(0xFF3F3F46)
   }
-  val clientPrimaryTextColor = when (clientDarkMode) {
-    ClientDarkMode.OFF -> Color(0xFF0F172A)
-    else -> Color(0xFFF1F5F9)
+  val clientPrimaryTextColor = when {
+    clientDarkMode != ClientDarkMode.OFF -> Color(0xFFF1F5F9)
+    isAppDark -> Color(0xFFF1F5F9)
+    else -> Color(0xFF0F172A)
   }
-  val clientSecondaryTextColor = when (clientDarkMode) {
-    ClientDarkMode.OFF -> Color(0xFF64748B)
-    else -> Color(0xFF94A3B8)
+  val clientSecondaryTextColor = when {
+    clientDarkMode != ClientDarkMode.OFF -> Color(0xFF94A3B8)
+    isAppDark -> Color(0xFFCBD5E1)
+    else -> Color(0xFF64748B)
   }
 
   Column(modifier = Modifier.fillMaxSize()) {

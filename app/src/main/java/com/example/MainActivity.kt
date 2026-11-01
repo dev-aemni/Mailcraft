@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -35,19 +36,23 @@ import androidx.compose.material.icons.filled.Drafts
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.LightMode
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
 import com.example.ui.screens.DraftsScreen
 import com.example.ui.theme.NeuIconButton
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
@@ -111,6 +116,34 @@ fun MailCraftApp(viewModel: MailCraftViewModel = viewModel()) {
 
   val context = LocalContext.current
   var showSettingsDialog by remember { mutableStateOf(false) }
+  var showResetConfirmDialog by remember { mutableStateOf(false) }
+
+  // Start from scratch / Reset confirmation dialog
+  if (showResetConfirmDialog) {
+    AlertDialog(
+      onDismissRequest = { showResetConfirmDialog = false },
+      title = { Text("Start from scratch (0)?", fontWeight = FontWeight.Bold) },
+      text = {
+        Text("Do you want to clear all blocks and reset the email so you can build your custom email from 0 without editing default blocks?")
+      },
+      confirmButton = {
+        Button(
+          onClick = {
+            viewModel.resetToBlankEmail()
+            showResetConfirmDialog = false
+          },
+          colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+        ) {
+          Text("Clear & Start from 0")
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showResetConfirmDialog = false }) {
+          Text("Cancel")
+        }
+      }
+    )
+  }
 
   // Account Settings Dialog
   if (showSettingsDialog) {
@@ -173,6 +206,18 @@ fun MailCraftApp(viewModel: MailCraftViewModel = viewModel()) {
           }
         },
         actions = {
+          if (activeTab == AppTab.COMPOSE || activeTab == AppTab.HTML_WORKSTATION) {
+            IconButton(
+              onClick = { showResetConfirmDialog = true },
+              modifier = Modifier.testTag("top_bar_reset_button")
+            ) {
+              Icon(
+                Icons.Default.RestartAlt,
+                contentDescription = "Start from 0 / Reset",
+                tint = MaterialTheme.colorScheme.error
+              )
+            }
+          }
           IconButton(
             onClick = { showSettingsDialog = true },
             modifier = Modifier.testTag("top_bar_settings_button")
@@ -280,6 +325,7 @@ fun MailCraftApp(viewModel: MailCraftViewModel = viewModel()) {
       modifier = Modifier
         .fillMaxSize()
         .padding(innerPadding)
+        .imePadding()
     ) {
       when (activeTab) {
         AppTab.COMPOSE -> ComposeScreen(

@@ -300,70 +300,57 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
       }
     }
 
-    // Developer & App Control Banner (ai top)
+    // Compact Developer & App Control Banner (ai top)
     Surface(
       modifier = Modifier
         .fillMaxWidth()
         .padding(horizontal = 14.dp, vertical = 2.dp),
       color = if (isDark) Color(0xFF1E222A) else Color(0xFFEEF2FF),
-      shape = RoundedCornerShape(12.dp),
+      shape = RoundedCornerShape(10.dp),
       border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF2C3240) else Color(0xFFC7D2FE))
     ) {
-      Column(modifier = Modifier.padding(10.dp)) {
-        Row(
-          modifier = Modifier.fillMaxWidth(),
-          horizontalArrangement = Arrangement.SpaceBetween,
-          verticalAlignment = Alignment.CenterVertically
-        ) {
-          Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-              text = "2026 @dev-aemni",
-              fontSize = 11.sp,
-              fontWeight = FontWeight.Bold,
-              color = NeuAccent
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-              text = "• App Control Active ⚡",
-              fontSize = 10.sp,
-              fontWeight = FontWeight.SemiBold,
-              color = Color(0xFF10B981)
-            )
+      Row(
+        modifier = Modifier
+          .fillMaxWidth()
+          .padding(horizontal = 10.dp, vertical = 5.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+      ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+          Text(
+            text = "2026 @dev-aemni",
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Bold,
+            color = NeuAccent
+          )
+          Spacer(modifier = Modifier.width(6.dp))
+          Text(
+            text = "• v1.1.4 • App Control ⚡",
+            fontSize = 10.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = Color(0xFF10B981)
+          )
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+          TextButton(
+            onClick = {
+              val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://dev-aemni.github.io/Mailcraft"))
+              try { context.startActivity(intent) } catch (_: Exception) {}
+            },
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+          ) {
+            Text("Web ↗", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
           }
-          Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(
-              onClick = {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://dev-aemni.github.io/Mailcraft/"))
-                try { context.startActivity(intent) } catch (_: Exception) {}
-              },
-              contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
-            ) {
-              Text("Web ↗", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = Color(0xFF0284C7))
-            }
-            TextButton(
-              onClick = {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dev-aemni/Mailcraft/issues"))
-                try { context.startActivity(intent) } catch (_: Exception) {}
-              },
-              contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
-            ) {
-              Text("Issues ↗", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = NeuAccent)
-            }
+          TextButton(
+            onClick = {
+              val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/dev-aemni/Mailcraft/issues"))
+              try { context.startActivity(intent) } catch (_: Exception) {}
+            },
+            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp)
+          ) {
+            Text("Issues ↗", fontSize = 10.sp, fontWeight = FontWeight.Bold, color = NeuAccent)
           }
         }
-        Spacer(modifier = Modifier.height(3.dp))
-        Text(
-          text = "Site: dev-aemni.github.io/Mailcraft • Docs: dev-aemni.github.io/Mailcraft/help",
-          fontSize = 9.5.sp,
-          color = if (isDark) Color(0xFF38BDF8) else Color(0xFF0284C7),
-          fontFamily = FontFamily.Monospace
-        )
-        Text(
-          text = "\"To Request features/update\" create an issue at github.com/dev-aemni/Mailcraft/issues",
-          fontSize = 9.5.sp,
-          color = textSecondary,
-          lineHeight = 13.sp
-        )
       }
     }
 
@@ -497,10 +484,6 @@ fun AiBotScreen(viewModel: MailCraftViewModel) {
         item {
           ThinkingIndicatorRow(isDark = isDark)
         }
-      }
-
-      item {
-        MailCraftFooter(isDark = isDark)
       }
     }
 

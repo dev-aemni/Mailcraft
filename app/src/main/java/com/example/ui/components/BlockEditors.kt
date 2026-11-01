@@ -63,6 +63,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
@@ -110,7 +111,9 @@ fun BlockCardWrapper(
       ) {
         Row(
           verticalAlignment = Alignment.CenterVertically,
-          modifier = Modifier.clickable { isExpanded = !isExpanded }
+          modifier = Modifier
+            .weight(1f)
+            .clickable { isExpanded = !isExpanded }
         ) {
           Box(
             modifier = Modifier
@@ -130,7 +133,10 @@ fun BlockCardWrapper(
           Text(
             text = title,
             fontWeight = FontWeight.Bold,
-            style = MaterialTheme.typography.titleSmall
+            style = MaterialTheme.typography.titleSmall,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
           )
           Spacer(modifier = Modifier.width(4.dp))
           Icon(
@@ -141,8 +147,13 @@ fun BlockCardWrapper(
           )
         }
 
+        Spacer(modifier = Modifier.width(4.dp))
+
         // Actions: Up, Down, Duplicate, Delete
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+          verticalAlignment = Alignment.CenterVertically,
+          horizontalArrangement = Arrangement.End
+        ) {
           IconButton(
             onClick = onMoveUp,
             enabled = canMoveUp,

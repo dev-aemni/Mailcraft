@@ -350,7 +350,7 @@ fun MailCraftFooter(
       Spacer(modifier = Modifier.height(10.dp))
 
       Text(
-        text = "Version 1.1.1 • All data stored locally on device • © 2026 @dev-aemni",
+        text = "Version 1.1.4 • All data stored locally on device • © 2026 @dev-aemni",
         fontSize = 10.sp,
         color = if (isDark) Color(0xFF64748B) else Color(0xFF94A3B8)
       )

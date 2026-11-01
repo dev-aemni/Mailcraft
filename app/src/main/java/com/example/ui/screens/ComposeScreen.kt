@@ -52,8 +52,11 @@ import androidx.compose.material.icons.filled.Key
 import androidx.compose.material.icons.filled.OpenInNew
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PictureAsPdf
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.material.icons.filled.RestartAlt
 import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material.icons.filled.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.filled.SmartButton
 import androidx.compose.material.icons.filled.Terminal
 import androidx.compose.ui.layout.ContentScale
@@ -136,6 +139,35 @@ fun ComposeScreen(
   var showCcBcc by remember { mutableStateOf(false) }
   var activeGifBlockId by remember { mutableStateOf<String?>(null) }
   var showAdvancedOptions by remember { mutableStateOf(false) }
+  var showResetDialog by remember { mutableStateOf(false) }
+
+  // Start from scratch / Reset confirmation dialog
+  if (showResetDialog) {
+    AlertDialog(
+      onDismissRequest = { showResetDialog = false },
+      title = { Text("Start from 0 (Clear All)?", fontWeight = FontWeight.Bold) },
+      text = {
+        Text("Do you want to clear all blocks and reset the email? This creates a completely blank canvas so you can craft your email from 0.")
+      },
+      confirmButton = {
+        Button(
+          onClick = {
+            viewModel.resetToBlankEmail()
+            showResetDialog = false
+            Toast.makeText(context, "Started fresh from 0!", Toast.LENGTH_SHORT).show()
+          },
+          colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+        ) {
+          Text("Clear & Start from 0")
+        }
+      },
+      dismissButton = {
+        TextButton(onClick = { showResetDialog = false }) {
+          Text("Cancel")
+        }
+      }
+    )
+  }
 
   val attachments by viewModel.attachments.collectAsState()
 
@@ -381,8 +413,10 @@ fun ComposeScreen(
 
 
   LazyColumn(
-    modifier = Modifier.fillMaxSize(),
-    contentPadding = PaddingValues(16.dp),
+    modifier = Modifier
+      .fillMaxSize()
+      .imePadding(),
+    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 90.dp),
     verticalArrangement = Arrangement.spacedBy(14.dp)
   ) {
     // 1. Sender Banner
@@ -477,6 +511,18 @@ fun ComposeScreen(
               }
             }
             Spacer(modifier = Modifier.width(6.dp))
+            IconButton(
+              onClick = { showResetDialog = true },
+              modifier = Modifier.size(32.dp).testTag("compose_reset_email_button")
+            ) {
+              Icon(
+                Icons.Default.RestartAlt,
+                contentDescription = "Start from 0 / Reset",
+                modifier = Modifier.size(19.dp),
+                tint = MaterialTheme.colorScheme.error
+              )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
             IconButton(onClick = onOpenSettings, modifier = Modifier.size(32.dp)) {
               Icon(Icons.Default.Edit, contentDescription = "Edit Sender Account", modifier = Modifier.size(18.dp), tint = if (isDark) Color(0xFFE2E8F0) else Color(0xFF475569))
             }
@@ -1076,12 +1122,29 @@ fun ComposeScreen(
     // 3. Add Custom Blocks Bar
     item {
       Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-          text = "Add Email Elements & Media",
-          style = MaterialTheme.typography.titleSmall,
-          fontWeight = FontWeight.Bold,
-          color = MaterialTheme.colorScheme.onSurface
-        )
+        Row(
+          modifier = Modifier.fillMaxWidth(),
+          horizontalArrangement = Arrangement.SpaceBetween,
+          verticalAlignment = Alignment.CenterVertically
+        ) {
+          Text(
+            text = "Email Elements (${blocks.size} Blocks)",
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface
+          )
+          if (blocks.isNotEmpty()) {
+            TextButton(
+              onClick = { showResetDialog = true },
+              contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+              modifier = Modifier.testTag("compose_clear_all_blocks_button")
+            ) {
+              Icon(Icons.Default.RestartAlt, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(15.dp))
+              Spacer(modifier = Modifier.width(4.dp))
+              Text("Start from 0", color = MaterialTheme.colorScheme.error, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+            }
+          }
+        }
         Spacer(modifier = Modifier.height(8.dp))
         Row(
           modifier = Modifier
@@ -1143,6 +1206,66 @@ fun ComposeScreen(
             tag = "add_social_chip"
           ) {
             viewModel.addBlock(BlockType.SOCIAL_LINKS)
+          }
+        }
+      }
+    }
+
+    // Blank Canvas Empty State
+    if (blocks.isEmpty()) {
+      item {
+        Card(
+          modifier = Modifier
+            .fillMaxWidth()
+            .testTag("compose_empty_blocks_card"),
+          shape = RoundedCornerShape(16.dp),
+          colors = CardDefaults.cardColors(
+            containerColor = if (isDark) Color(0xFF1E222A) else Color(0xFFF1F5F9)
+          ),
+          border = androidx.compose.foundation.BorderStroke(1.dp, if (isDark) Color(0xFF2C3240) else Color(0xFFCBD5E1))
+        ) {
+          Column(
+            modifier = Modifier
+              .fillMaxWidth()
+              .padding(22.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+          ) {
+            Text("✉️", fontSize = 34.sp)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+              "Blank Canvas — Build from 0",
+              fontWeight = FontWeight.Bold,
+              fontSize = 15.sp,
+              color = if (isDark) Color(0xFFF1F5F9) else Color(0xFF0F172A)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+              "No blocks yet. Tap any element above (+ Headline, + Text, + CTA, + Embed Card) or use the AI Creator to start crafting your email from scratch!",
+              textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+              fontSize = 12.sp,
+              color = if (isDark) Color(0xFF94A3B8) else Color(0xFF64748B)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+              Button(
+                onClick = { viewModel.addBlock(BlockType.HEADER) },
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                modifier = Modifier.height(34.dp)
+              ) {
+                Text("+ Headline", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+              }
+              Button(
+                onClick = { viewModel.addBlock(BlockType.TEXT) },
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                modifier = Modifier.height(34.dp)
+              ) {
+                Text("+ Paragraph", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+              }
+            }
           }
         }
       }
